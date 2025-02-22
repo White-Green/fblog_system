@@ -1,0 +1,13 @@
+FROM ghcr.io/mastodon/mastodon:v4.3.6
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y curl ca-certificates
+COPY caddy-data/caddy/pki/authorities/local/root.crt /usr/local/share/ca-certificates/caddy_root.crt
+RUN update-ca-certificates
+
+COPY --chown=mastodon caddy-data/caddy/pki/authorities/local/root.crt /mastodon/.local/caddy/root.crt
+ENV SSL_CERT_FILE=/mastodon/.local/caddy/root.crt
+
+USER mastodon

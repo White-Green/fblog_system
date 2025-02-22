@@ -1,0 +1,16 @@
+/*
+!/contents
+!/crates
+!/src
+!/public
+!/test_config
+!/tests
+!/.gitignore
+!/astro.config.mjs
+!/biome.json
+!/Cargo.lock
+!/Cargo.toml
+!/package.json
+!/pnpm-lock.yaml
+!/rustfmt.toml
+!/tsconfig.json

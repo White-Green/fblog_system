@@ -1,0 +1,112 @@
+services:
+  # Misskey
+  misskey_db:
+    build:
+      context: misskey
+      dockerfile: Dockerfile_db
+    env_file:
+      - misskey/docker.env
+
+  misskey_redis:
+    image: redis:7-alpine
+
+  misskey:
+    build:
+      context: .
+      dockerfile: Dockerfile_misskey
+    depends_on:
+      - misskey_db
+      - misskey_redis
+      - caddy
+    volumes:
+      - ./misskey:/misskey/.config:ro
+    env_file:
+      - misskey/docker.env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  # Mastodon
+  mastodon_db:
+    build:
+      context: mastodon
+      dockerfile: Dockerfile_db
+
+  mastodon_redis:
+    image: redis:7-alpine
+    env_file: mastodon/docker.env
+
+  mastodon:
+    build:
+      context: .
+      dockerfile: Dockerfile_mastodon
+    env_file: mastodon/.env.production
+    environment:
+      - RAILS_LOG_LEVEL=debug
+      - ALLOWED_PRIVATE_ADDRESSES=172.0.0.0/8
+    command: bundle exec puma -C config/puma.rb
+    depends_on:
+      - mastodon_db
+      - mastodon_redis
+      - caddy
+
+  mastodon_sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile_mastodon
+    restart: always
+    env_file: mastodon/.env.production
+    environment:
+      - ALLOWED_PRIVATE_ADDRESSES=172.0.0.0/8
+    command: bundle exec sidekiq
+    depends_on:
+      - mastodon_db
+      - mastodon_redis
+
+  # Sharkey
+  sharkey_db:
+    build:
+      context: sharkey
+      dockerfile: Dockerfile_db
+    env_file:
+      - ./sharkey/docker.env
+
+  sharkey_redis:
+    image: redis:7-alpine
+
+  sharkey:
+    build:
+      context: .
+      dockerfile: Dockerfile_sharkey
+    depends_on:
+      - sharkey_db
+      - sharkey_redis
+      - caddy
+    environment:
+      - NODE_OPTIONS="--max-old-space-size=8192"
+      - NODE_ENV=development
+    volumes:
+      - ./sharkey:/sharkey/.config:ro
+
+  # Network Routing
+  caddy:
+    image: caddy:alpine
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    expose:
+      - 80
+      - 443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-data:/data
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - blog.test
+          - misskey.test
+          - mastodon.test
+          - sharkey.test

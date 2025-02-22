@@ -1,0 +1,36 @@
+{
+  "name": "pages_test",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node test.js",
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "biome lint src",
+    "format": "biome format --write src",
+    "check": "biome check --write src"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@astrojs/mdx": "^4.3.0",
+    "astro": "^5.9.0",
+    "marked": "^15.0.12",
+    "miniflare": "^4.20250525.1",
+    "rehype": "^13.0.2",
+    "rehype-stringify": "^10.0.1",
+    "remark-breaks": "^4.0.0",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "unist-util-visit-parents": "^6.0.1"
+  },
+  "packageManager": "pnpm@10.11.1",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

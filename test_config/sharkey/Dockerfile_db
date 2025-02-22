@@ -1,0 +1,2 @@
+FROM groonga/pgroonga:4.0.1-alpine-17
+ADD ./db-data.tar.xz /var/lib/postgresql/data

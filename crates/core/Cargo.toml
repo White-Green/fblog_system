@@ -1,0 +1,26 @@
+[package]
+name = "fblog_system_core"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+
+[dependencies]
+arrayvec = { workspace = true }
+axum = { workspace = true }
+base64 = { workspace = true }
+bitflags = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+digest = { workspace = true }
+futures = { workspace = true }
+http-body = { workspace = true }
+http-body-util = { workspace = true }
+mime = { workspace = true }
+regex = { workspace = true }
+ring-compat = { workspace = true }
+rsa = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }

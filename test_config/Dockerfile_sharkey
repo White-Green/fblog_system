@@ -1,0 +1,4 @@
+FROM registry.activitypub.software/transfem-org/sharkey:2025.2.2
+
+COPY --chown=misskey caddy-data/caddy/pki/authorities/local/root.crt /misskey/.local/caddy/root.crt
+ENV NODE_EXTRA_CA_CERTS=/misskey/.local/caddy/root.crt

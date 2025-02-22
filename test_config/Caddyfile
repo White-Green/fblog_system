@@ -1,0 +1,23 @@
+{
+    debug
+}
+
+misskey.test {
+    tls internal
+    reverse_proxy misskey:3000
+}
+
+mastodon.test {
+    tls internal
+    reverse_proxy mastodon:3000
+}
+
+sharkey.test {
+    tls internal
+    reverse_proxy sharkey:3000
+}
+
+blog.test {
+    tls internal
+    reverse_proxy host.docker.internal:8787
+}

@@ -1,0 +1,29 @@
+url: https://misskey.test/
+port: 3000
+db:
+  host: misskey_db
+  port: 5432
+  db: misskey
+  user: example-misskey-user
+  pass: example-misskey-pass
+
+dbReplications: false
+
+redis:
+  host: misskey_redis
+  port: 6379
+fulltextSearch:
+  provider: sqlLike
+
+id: 'aidx'
+
+proxyBypassHosts:
+  - api.deepl.com
+  - api-free.deepl.com
+  - www.recaptcha.net
+  - hcaptcha.com
+  - challenges.cloudflare.com
+
+proxyRemoteFiles: true
+
+signToActivityPubGet: true
