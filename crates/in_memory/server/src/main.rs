@@ -56,6 +56,11 @@ impl InMemoryServer {
             let certificate = reqwest::Certificate::from_pem(&certificate_pem).unwrap();
             client_builder = client_builder.add_root_certificate(certificate);
         }
+        client_builder = client_builder
+            .resolve("misskey.test", "127.0.0.1:443".parse().unwrap())
+            .resolve("mastodon.test", "127.0.0.1:443".parse().unwrap())
+            .resolve("sharkey.test", "127.0.0.1:443".parse().unwrap())
+            .resolve("blog.test", "127.0.0.1:443".parse().unwrap());
         Self {
             articles: Arc::new(TokioRwLock::new(HashMap::new())),
             comments_raw: Arc::new(TokioRwLock::new(Vec::new())),
