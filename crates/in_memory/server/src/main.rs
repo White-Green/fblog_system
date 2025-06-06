@@ -299,8 +299,17 @@ async fn main() {
                 .unwrap()
                 .join("dist")
                 .join(uri.path().strip_prefix("/").unwrap_or(uri.path()));
-            match std::fs::read(dbg!(path)) {
-                Ok(file) => future::ready(Ok(file)),
+            match std::fs::metadata(&path) {
+                Ok(meta) if meta.is_file() => match std::fs::read(&path) {
+                    Ok(file) => future::ready(Ok(file)),
+                    Err(e) => {
+                        tracing::error!("Error {e}");
+                        future::ready(Err(Response::builder().status(500).body(Body::empty()).unwrap()))
+                    }
+                },
+                Ok(_) => {
+                    future::ready(Err(Response::builder().status(404).body(Body::empty()).unwrap()))
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     future::ready(Err(Response::builder().status(404).body(Body::empty()).unwrap()))
                 }
