@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
 use axum::Json;
 use axum::body::Body;
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::http::{Request, Response, Uri};
 use axum::routing::{delete, get, post, put};
 use bytes::Bytes;
@@ -16,7 +16,6 @@ use rsa::sha2::Sha256;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Display;
-use axum::extract::Path;
 use std::sync::Arc;
 use std::{env, future};
 use tokio::sync::RwLock as TokioRwLock;
@@ -50,12 +49,16 @@ struct InMemoryServer {
 
 impl InMemoryServer {
     fn new(queue: tokio::sync::mpsc::UnboundedSender<QueueData>, key: SigningKey<rsa::sha2::Sha256>) -> Self {
-        let mut client_builder = reqwest::ClientBuilder::new();
+        let mut client_builder = reqwest::ClientBuilder::new()
+            .resolve("misskey.test", "127.0.0.1:443".parse().unwrap())
+            .resolve("mastodon.test", "127.0.0.1:443".parse().unwrap())
+            .resolve("sharkey.test", "127.0.0.1:443".parse().unwrap());
         if let Ok(certificate_path) = env::var("ADDITIONAL_CERTIFICATE_PEM") {
             let certificate_pem = std::fs::read(dbg!(certificate_path)).unwrap();
             let certificate = reqwest::Certificate::from_pem(&certificate_pem).unwrap();
             client_builder = client_builder.add_root_certificate(certificate);
         }
+
         Self {
             articles: Arc::new(TokioRwLock::new(HashMap::new())),
             comments_raw: Arc::new(TokioRwLock::new(Vec::new())),
@@ -299,8 +302,15 @@ async fn main() {
                 .unwrap()
                 .join("dist")
                 .join(uri.path().strip_prefix("/").unwrap_or(uri.path()));
-            match std::fs::read(dbg!(path)) {
-                Ok(file) => future::ready(Ok(file)),
+            match std::fs::metadata(&path) {
+                Ok(meta) if meta.is_file() => match std::fs::read(&path) {
+                    Ok(file) => future::ready(Ok(file)),
+                    Err(e) => {
+                        tracing::error!("Error {e}");
+                        future::ready(Err(Response::builder().status(500).body(Body::empty()).unwrap()))
+                    }
+                },
+                Ok(_) => future::ready(Err(Response::builder().status(404).body(Body::empty()).unwrap())),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     future::ready(Err(Response::builder().status(404).body(Body::empty()).unwrap()))
                 }

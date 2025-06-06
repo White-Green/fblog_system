@@ -5,11 +5,11 @@ use reqwest::{Certificate, Client};
 use std::time::Duration;
 
 async fn wait_for(mut pred: impl AsyncFnMut() -> bool) {
-    for _ in 0..1000 {
+    for _ in 0..60 * 20 {
         if pred().await {
             return;
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(1000)).await;
     }
     panic!("timeout");
 }
@@ -50,6 +50,10 @@ fn main() {
             mastodon.get_note("https://blog.test/articles/first-post"),
         )
         .unwrap();
+
+        assert!(sharkey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(misskey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(mastodon_note["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/first-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【First post】</strong></a>"));
 
         tokio::try_join!(
             sharkey.follow(sharkey_note["object"]["user"]["id"].as_str().unwrap()),

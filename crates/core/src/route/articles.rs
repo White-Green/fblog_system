@@ -12,11 +12,7 @@ pub(crate) mod comments;
 pub(crate) mod events;
 
 #[tracing::instrument(skip(state))]
-pub async fn article_get<E>(
-    header: HeaderMap,
-    Path(slug): Path<String>,
-    State(state): State<E>,
-) -> Response<Body>
+pub async fn article_get<E>(header: HeaderMap, Path(slug): Path<String>, State(state): State<E>) -> Response<Body>
 where
     E: Env + ArticleProvider,
 {
