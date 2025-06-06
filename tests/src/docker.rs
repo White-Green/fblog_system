@@ -1,14 +1,14 @@
+use crate::docker::mastodon::MastodonClient;
 use crate::docker::misskey::MisskeyClient;
+use crate::docker::sharkey::SharkeyClient;
+use ini::Ini;
 use reqwest::Client;
 use std::path::Path;
-use ini::Ini;
 use tokio::process::Child;
-use crate::docker::mastodon::MastodonClient;
-use crate::docker::sharkey::SharkeyClient;
 
+mod mastodon;
 mod misskey;
 mod sharkey;
-mod mastodon;
 
 pub struct DockerContainers {
     client: Client,
@@ -30,21 +30,40 @@ impl DockerContainers {
     }
 
     pub fn misskey_client(&self) -> MisskeyClient {
-        let config = Ini::load_from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_config/misskey/credentials.ini"))).unwrap();
+        let config = Ini::load_from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_config/misskey/credentials.ini"
+        )))
+        .unwrap();
         let config = config.section::<&str>(None).unwrap();
         MisskeyClient::new(&self.client, "https://misskey.test", config.get("ACCESS_TOKEN").unwrap())
     }
 
     pub fn sharkey_client(&self) -> SharkeyClient {
-        let config = Ini::load_from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_config/sharkey/credentials.ini"))).unwrap();
+        let config = Ini::load_from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_config/sharkey/credentials.ini"
+        )))
+        .unwrap();
         let config = config.section::<&str>(None).unwrap();
         SharkeyClient::new(&self.client, "https://sharkey.test", config.get("ACCESS_TOKEN").unwrap())
     }
 
     pub fn mastodon_client(&self) -> MastodonClient {
-        let config = Ini::load_from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_config/mastodon/credentials.ini"))).unwrap();
+        let config = Ini::load_from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../test_config/mastodon/credentials.ini"
+        )))
+        .unwrap();
         let config = config.section::<&str>(None).unwrap();
-        MastodonClient::new(&self.client, "https://mastodon.test", config.get("EMAIL").unwrap(), config.get("PASSWORD").unwrap(), config.get("CLIENT_KEY").unwrap(), config.get("CLIENT_SECRET").unwrap())
+        MastodonClient::new(
+            &self.client,
+            "https://mastodon.test",
+            config.get("EMAIL").unwrap(),
+            config.get("PASSWORD").unwrap(),
+            config.get("CLIENT_KEY").unwrap(),
+            config.get("CLIENT_SECRET").unwrap(),
+        )
     }
 }
 

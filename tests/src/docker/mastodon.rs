@@ -1,5 +1,5 @@
 use reqwest::Client;
-use reqwest::header::{ACCEPT, };
+use reqwest::header::ACCEPT;
 use std::error::Error;
 use std::time::Duration;
 
@@ -36,14 +36,14 @@ impl MastodonClient<'_> {
                     .header("Content-Type", "application/json")
                     .body(
                         serde_json::to_string(&serde_json::json!({
-                    "client_id": self.client_key.as_str(),
-                    "client_secret": self.client_secret.as_str(),
-                    "grant_type": "password",
-                    "username": self.email.as_str(),
-                    "password": self.password.as_str(),
-                    "scope": "read write follow",
-                }))
-                            .unwrap(),
+                            "client_id": self.client_key.as_str(),
+                            "client_secret": self.client_secret.as_str(),
+                            "grant_type": "password",
+                            "username": self.email.as_str(),
+                            "password": self.password.as_str(),
+                            "scope": "read write follow",
+                        }))
+                        .unwrap(),
                     )
                     .send()
                     .await
@@ -103,7 +103,10 @@ impl MastodonClient<'_> {
                 .header(ACCEPT, "application/json")
                 .send()
                 .await
-                .unwrap().json::<serde_json::Value>().await.unwrap();
+                .unwrap()
+                .json::<serde_json::Value>()
+                .await
+                .unwrap();
             if response["followers_count"].as_i64().unwrap() == 1 {
                 break;
             }

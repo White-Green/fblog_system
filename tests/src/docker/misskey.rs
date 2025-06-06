@@ -63,7 +63,10 @@ impl MisskeyClient<'_> {
                 .body(serde_json::to_string(&serde_json::json!({"i": self.token})).unwrap())
                 .send()
                 .await
-                .unwrap().json::<serde_json::Value>().await.unwrap();
+                .unwrap()
+                .json::<serde_json::Value>()
+                .await
+                .unwrap();
             if response["followingCount"].as_i64().unwrap() == 1 {
                 break;
             }
