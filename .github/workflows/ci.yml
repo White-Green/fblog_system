@@ -28,6 +28,19 @@ jobs:
       - name: Wait for caddy
         run: sleep 10
 
+      - name: Trigger certificate generation
+        run: curl -k https://blog.test > /dev/null || true
+
+      - name: Wait for certificate file
+        run: |
+          for i in {1..30}; do
+            if [ -f test_config/caddy-data/caddy/pki/authorities/local/root.crt ]; then
+              break
+            fi
+            sleep 1
+          done
+          ls -l test_config/caddy-data/caddy/pki/authorities/local/root.crt
+
       - name: Fix certificate permissions
         run: |
           sudo chown -R $(id -u):$(id -g) test_config/caddy-data
