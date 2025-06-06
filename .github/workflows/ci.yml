@@ -29,7 +29,9 @@ jobs:
         run: sleep 10
 
       - name: Fix certificate permissions
-        run: sudo chmod -R a+rX test_config/caddy-data
+        run: |
+          sudo chown -R $(id -u):$(id -g) test_config/caddy-data
+          sudo chmod -R a+rX test_config/caddy-data
 
       - name: Build site
         run: pnpm run build
