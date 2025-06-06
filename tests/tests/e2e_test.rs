@@ -38,7 +38,7 @@ fn main() {
         let sharkey = docker.sharkey_client();
 
         tokio::join!(
-            wait_for(async || in_memory.server_started().await),
+            in_memory.wait_for_server_start(),
             wait_for(async || misskey.server_started().await),
             wait_for(async || mastodon.server_started().await),
             wait_for(async || sharkey.server_started().await),

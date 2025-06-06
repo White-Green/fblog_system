@@ -37,6 +37,16 @@ impl InMemoryBlog {
         false
     }
 
+    pub async fn wait_for_server_start(&self) {
+        for _ in 0..1000 {
+            if self.server_started().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        panic!("timeout");
+    }
+
     pub async fn send_queue_data(&self, queue_data: QueueData) {
         self.client
             .post("http://localhost:8787/job_queue")
