@@ -37,8 +37,9 @@ fn main() {
         let mut mastodon = docker.mastodon_client();
         let sharkey = docker.sharkey_client();
 
+        in_memory.wait_for_server_start().await;
+
         tokio::join!(
-            in_memory.wait_for_server_start(),
             wait_for(async || misskey.server_started().await),
             wait_for(async || mastodon.server_started().await),
             wait_for(async || sharkey.server_started().await),
