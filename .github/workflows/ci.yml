@@ -5,6 +5,10 @@ on:
 
 jobs:
   test:
+      - name: Add hosts entries
+        run: |
+          echo "127.0.0.1 misskey.test mastodon.test sharkey.test blog.test" | sudo tee -a /etc/hosts
+
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
