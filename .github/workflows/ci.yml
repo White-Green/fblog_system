@@ -28,6 +28,9 @@ jobs:
       - name: Wait for caddy
         run: sleep 10
 
+      - name: Fix certificate permissions
+        run: sudo chmod -R a+r test_config/caddy-data
+
       - name: Build site
         run: pnpm run build
 
