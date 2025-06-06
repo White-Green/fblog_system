@@ -239,19 +239,25 @@ async fn main() {
             }
         }
         {
+            use walkdir::WalkDir;
             let mut articles = state.articles.write().await;
-            for entry in content_root.join("articles").read_dir().unwrap() {
-                let entry = entry.unwrap();
-                assert!(entry.file_type().unwrap().is_file());
+            let articles_root = content_root.join("articles");
+            for entry in WalkDir::new(&articles_root)
+                .into_iter()
+                .filter_map(Result::ok)
+                .filter(|e| e.file_type().is_file())
+            {
                 let without_extension = entry.path().with_extension("");
-                let slug = without_extension.file_name().unwrap();
-                let slug = slug.to_str().unwrap();
+                let slug_path = without_extension.strip_prefix(&articles_root).unwrap();
+                let slug = slug_path.to_string_lossy().replace('\\', "/");
                 let info_ap = std::fs::read_to_string(entry.path()).unwrap();
                 articles.insert(
-                    slug.to_owned(),
+                    slug.clone(),
                     ArticleState {
                         author: "default".to_owned(),
-                        info_html: format!("<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"),
+                        info_html: format!(
+                            "<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"
+                        ),
                         info_ap,
                     },
                 );

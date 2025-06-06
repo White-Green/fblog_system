@@ -51,9 +51,20 @@ fn main() {
         )
         .unwrap();
 
+        let (sharkey_deep, misskey_deep, mastodon_deep) = tokio::try_join!(
+            sharkey.get_note("https://blog.test/articles/2025/06/nested-post"),
+            misskey.get_note("https://blog.test/articles/2025/06/nested-post"),
+            mastodon.get_note("https://blog.test/articles/2025/06/nested-post"),
+        )
+        .unwrap();
+
         assert!(sharkey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
         assert!(misskey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
         assert!(mastodon_note["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/first-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【First post】</strong></a>"));
+
+        assert!(sharkey_deep["object"]["text"].as_str().unwrap().starts_with("[【Nested Post】](https://blog.test/articles/2025/06/nested-post)"));
+        assert!(misskey_deep["object"]["text"].as_str().unwrap().starts_with("[【Nested Post】](https://blog.test/articles/2025/06/nested-post)"));
+        assert!(mastodon_deep["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/2025/06/nested-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【Nested Post】</strong></a>"));
 
         tokio::try_join!(
             sharkey.follow(sharkey_note["object"]["user"]["id"].as_str().unwrap()),
