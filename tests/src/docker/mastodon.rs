@@ -107,7 +107,7 @@ impl MastodonClient<'_> {
             if response["followers_count"].as_i64().unwrap() == 1 {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(1000)).await;
         }
         let succeed = response.status().is_success();
         let response_dump = format!("{response:#?}");
