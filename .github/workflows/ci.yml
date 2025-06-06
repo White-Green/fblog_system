@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Start caddy
+        run: docker compose -f test_config/compose.yml up -d caddy
+
+      - name: Wait for caddy
+        run: sleep 10
+
+      - name: Build site
+        run: pnpm run build
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Stop caddy
+        if: always()
+        run: docker compose -f test_config/compose.yml down

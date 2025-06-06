@@ -1,8 +1,9 @@
 /*
+!/.github
 !/contents
 !/crates
-!/src
 !/public
+!/src
 !/test_config
 !/tests
 !/.gitignore
