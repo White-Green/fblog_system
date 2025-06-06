@@ -1,26 +1,11 @@
 import {getCollection} from 'astro:content';
 import fs from 'node:fs';
 
-const DEFAULT_PUBLIC_KEY =
-    "-----BEGIN PUBLIC KEY-----\n" +
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyF6RgWJwN+xSgGhZmV3j\n" +
-    "ayGyFpL6gt02RIkTuSQeHxaCz/cBepb5B1Xj5g5sifVLyq9lJh1S9VRfn1iOsCiS\n" +
-    "G9JNSkvELhuWYXqbTJbr1n7P/NdofWKJc4QQessZ41rnojHHmjcMjW3Q4R3Xwe0D\n" +
-    "RSSKIqCfcp+8wWzoFDhGN327scTK9XlMee8acaWvzKBg6gZxEEh4u03+Rzngty9L\n" +
-    "dMx07nHx+af2qVvzLgnrqPwOmSqimFSoUmHErC/UjSTF87/ex5kcY/RWyyPNyyQX\n" +
-    "l087CpLVON3NqShC4ftFrmR0TAAHyZTQZxF/Tn5WgRv2DwXaDMTdC+T7zR7MrqBI\n" +
-    "mwIDAQAB\n" +
-    "-----END PUBLIC KEY-----\n";
-
 function getPublicKeyPem(): string {
-    if (process.env.PUBLIC_KEY_FILE) {
-        try {
-            return fs.readFileSync(process.env.PUBLIC_KEY_FILE, 'utf8');
-        } catch (e) {
-            console.error(`Failed to read public key from ${process.env.PUBLIC_KEY_FILE}`, e);
-        }
+    if (!process.env.PUBLIC_KEY_FILE) {
+        throw new Error('PUBLIC_KEY_FILE is not set');
     }
-    return DEFAULT_PUBLIC_KEY;
+    return fs.readFileSync(process.env.PUBLIC_KEY_FILE, 'utf8');
 }
 
 export async function getStaticPaths() {
