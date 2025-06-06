@@ -51,6 +51,10 @@ fn main() {
         )
         .unwrap();
 
+        assert!(sharkey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(misskey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(mastodon_note["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/first-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【First post】</strong></a>"));
+
         tokio::try_join!(
             sharkey.follow(sharkey_note["object"]["user"]["id"].as_str().unwrap()),
             misskey.follow(misskey_note["object"]["user"]["id"].as_str().unwrap()),
