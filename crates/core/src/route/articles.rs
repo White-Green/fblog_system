@@ -11,9 +11,15 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) mod events;
 
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum ArticleData {
+    Comments,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ArticleDataQuery {
-    data: Option<String>,
+    data: Option<ArticleData>,
     until: Option<u64>,
 }
 
@@ -73,7 +79,7 @@ pub async fn article_or_comments_get<E>(
 where
     E: Env + ArticleProvider + Clone,
 {
-    if matches!(query.data.as_deref(), Some("comments")) {
+    if matches!(query.data, Some(ArticleData::Comments)) {
         return article_comments_get(header, slug, query.until, state).await;
     }
     article_get(header, slug, state).await
