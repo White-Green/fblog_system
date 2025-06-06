@@ -48,6 +48,8 @@ jobs:
 
       - name: Build site
         run: pnpm run build
+        env:
+          PUBLIC_KEY_FILE: test_config/public-key-for-test.pem
 
       - name: Run tests
         run: cargo test --workspace
