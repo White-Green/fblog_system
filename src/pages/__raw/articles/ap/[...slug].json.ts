@@ -4,8 +4,8 @@ import remarkParse from 'remark-parse';
 import remarkBreaks from 'remark-breaks';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
-import {remarkCollectImages} from '../../plugins/remark-collect-images';
-import {rehypeTruncateHtml} from '../../plugins/rehype-truncate-html';
+import {remarkCollectImages} from '../../../plugins/remark-collect-images';
+import {rehypeTruncateHtml} from '../../../plugins/rehype-truncate-html';
 import remarkMath from "remark-math";
 
 export async function getStaticPaths() {
