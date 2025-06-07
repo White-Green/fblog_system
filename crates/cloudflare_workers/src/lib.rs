@@ -78,7 +78,7 @@ impl fblog_system_core::traits::Env for WorkerState {
 
 impl ArticleProvider for WorkerState {
     async fn exists_article(&self, slug: &str) -> bool {
-        self.fetch_exists(&format!("/raw_ap_articles/{slug}")).await
+        self.fetch_exists(&format!("/raw_ap_articles/{slug}.json")).await
     }
 
     async fn get_article_html(&self, slug: &str) -> Option<Body> {
@@ -86,14 +86,13 @@ impl ArticleProvider for WorkerState {
     }
 
     async fn get_article_ap(&self, slug: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw_ap_articles/{slug}")).await
+        self.fetch_body(&format!("/raw_ap_articles/{slug}.json")).await
     }
 
     async fn get_author_id(&self, slug: &str) -> Option<String> {
-        let bytes = self.fetch_bytes(&format!("/raw_ap_articles/{slug}")).await?;
-        let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
-        let attributed = value.get("attributedTo")?.as_str()?;
-        Some(attributed.rsplit('/').next()?.to_string())
+        let bytes = self.fetch_bytes(&format!("/raw_article_author/{slug}")).await?;
+        let s = String::from_utf8(bytes).ok()?;
+        Some(s.trim().to_string())
     }
 
     async fn add_comment_raw(&self, _data: Vec<u8>) {}
