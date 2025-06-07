@@ -1,20 +1,18 @@
+use arrayvec::ArrayVec;
 use axum::body::Body;
-use worker::HttpResponse;
-use worker::Body as WorkerBody;
 use axum::http::{Request, Uri};
+use axum::response::IntoResponse;
+use bytes::Bytes;
+use chrono::Utc;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
 use futures::{Future, Stream};
 use http::StatusCode;
-use axum::response::IntoResponse;
-use rsa::pkcs8::DecodePrivateKey;
-use chrono::Utc;
-use bytes::Bytes;
-use arrayvec::ArrayVec;
-use serde_json;
 use http_body_util::{BodyDataStream, BodyExt};
-use worker::{event, Context, Env, HttpRequest};
+use rsa::pkcs8::DecodePrivateKey;
+use serde_json;
 use tower_service::Service;
+use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, event};
 
 #[derive(Clone)]
 struct WorkerState {
@@ -23,7 +21,9 @@ struct WorkerState {
 }
 
 impl WorkerState {
-    fn assets(&self) -> worker::Fetcher { self.env.assets("ASSETS").unwrap() }
+    fn assets(&self) -> worker::Fetcher {
+        self.env.assets("ASSETS").unwrap()
+    }
 
     async fn fetch_asset(&self, uri: Uri) -> http::Response<Body> {
         self.assets()
@@ -71,9 +71,15 @@ impl WorkerState {
 }
 
 impl fblog_system_core::traits::Env for WorkerState {
-    fn url(&self) -> impl std::fmt::Display + Send + '_ { self.env.var("URL").unwrap().to_string() }
-    fn timestamp_now(&self) -> chrono::DateTime<Utc> { Utc::now() }
-    fn signing_key(&self) -> &RSASHA2SigningKey { &self.signing_key }
+    fn url(&self) -> impl std::fmt::Display + Send + '_ {
+        self.env.var("URL").unwrap().to_string()
+    }
+    fn timestamp_now(&self) -> chrono::DateTime<Utc> {
+        Utc::now()
+    }
+    fn signing_key(&self) -> &RSASHA2SigningKey {
+        &self.signing_key
+    }
 }
 
 impl ArticleProvider for WorkerState {
@@ -119,21 +125,26 @@ impl UserProvider for WorkerState {
         self.fetch_body(&format!("/__raw/users/ap/{username}.json")).await
     }
 
-    async fn get_followers_html(&self, _username: &str) -> Option<Body> { None }
-    async fn get_followers_len(&self, _username: &str) -> usize { 0 }
-    async fn get_follower_ids_until(&self, _username: &str, _until: u64) -> (ArrayVec<String,10>, u64) { (ArrayVec::new(), 0) }
+    async fn get_followers_html(&self, _username: &str) -> Option<Body> {
+        None
+    }
+    async fn get_followers_len(&self, _username: &str) -> usize {
+        0
+    }
+    async fn get_follower_ids_until(&self, _username: &str, _until: u64) -> (ArrayVec<String, 10>, u64) {
+        (ArrayVec::new(), 0)
+    }
     async fn add_follower(&self, _username: &str, _follower_id: String, _inbox: String) {}
     #[allow(refining_impl_trait)]
-    fn get_followers_inbox(
-        &self,
-        _username: &str,
-    ) -> impl Future<Output: Stream<Item = String> + Send> + Send {
+    fn get_followers_inbox(&self, _username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send {
         worker::send::SendFuture::new(async { futures::stream::empty() })
     }
 }
 
 impl Queue for WorkerState {
-    async fn enqueue(&self, data: QueueData) { worker::console_log!("enqueue: {:?}", data); }
+    async fn enqueue(&self, data: QueueData) {
+        worker::console_log!("enqueue: {:?}", data);
+    }
 }
 
 impl HTTPClient for WorkerState {
@@ -143,15 +154,15 @@ impl HTTPClient for WorkerState {
         let resp = reqwest::Client::new().execute(req).await?;
         let resp: axum::http::Response<reqwest::Body> = resp.into();
         let (parts, body) = resp.into_parts();
-        Ok(axum::http::Response::from_parts(parts, Body::from_stream(http_body_util::BodyDataStream::new(body))))
+        Ok(axum::http::Response::from_parts(
+            parts,
+            Body::from_stream(http_body_util::BodyDataStream::new(body)),
+        ))
     }
 }
 
 #[worker::send]
-async fn fallback(
-    uri: Uri,
-    axum::extract::State(state): axum::extract::State<WorkerState>,
-) -> impl IntoResponse {
+async fn fallback(uri: Uri, axum::extract::State(state): axum::extract::State<WorkerState>) -> impl IntoResponse {
     state.fetch_asset(uri).await
 }
 
@@ -160,7 +171,10 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     console_error_panic_hook::set_once();
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
-    let state = WorkerState { env: env.clone(), signing_key };
+    let state = WorkerState {
+        env: env.clone(),
+        signing_key,
+    };
     let mut service = router(state.clone())
         .fallback(fallback)
         .with_state::<()>(state)
