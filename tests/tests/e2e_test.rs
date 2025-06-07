@@ -51,16 +51,16 @@ fn main() {
         )
         .unwrap();
 
+        assert!(sharkey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(misskey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
+        assert!(mastodon_note["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/first-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【First post】</strong></a>"));
+
         let (sharkey_deep, misskey_deep, mastodon_deep) = tokio::try_join!(
             sharkey.get_note("https://blog.test/articles/2025/06/nested-post"),
             misskey.get_note("https://blog.test/articles/2025/06/nested-post"),
             mastodon.get_note("https://blog.test/articles/2025/06/nested-post"),
         )
-        .unwrap();
-
-        assert!(sharkey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
-        assert!(misskey_note["object"]["text"].as_str().unwrap().starts_with("[【First post】](https://blog.test/articles/first-post)"));
-        assert!(mastodon_note["content"].as_str().unwrap().starts_with("<a href=\"https://blog.test/articles/first-post\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><strong>【First post】</strong></a>"));
+            .unwrap();
 
         assert!(sharkey_deep["object"]["text"].as_str().unwrap().starts_with("[【Nested Post】](https://blog.test/articles/2025/06/nested-post)"));
         assert!(misskey_deep["object"]["text"].as_str().unwrap().starts_with("[【Nested Post】](https://blog.test/articles/2025/06/nested-post)"));
@@ -74,9 +74,9 @@ fn main() {
         .unwrap();
 
         tokio::join!(
-            async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 1) },
-            async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 1) },
-            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 1) },
+            async { assert_eq!(dbg!(sharkey.fetch_timeline().await.unwrap()).len(), 2) },
+            async { assert_eq!(dbg!(misskey.fetch_timeline().await.unwrap()).len(), 2) },
+            async { assert_eq!(dbg!(mastodon.fetch_timeline().await.unwrap()).len(), 2) },
         );
 
         in_memory
@@ -86,9 +86,9 @@ fn main() {
             .await;
 
         tokio::join!(
-            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 2),
-            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 2),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 2),
+            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 3),
+            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 3),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 3),
         );
 
         let mut new_article_ap = serde_json::from_str::<serde_json::Value>(include_str!("../../dist/articles/markdown-style-guide.json")).unwrap();
@@ -120,9 +120,9 @@ fn main() {
             .await;
 
         tokio::join!(
-            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 1),
-            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 1),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 1),
+            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 2),
+            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 2),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 2),
         );
     });
 }

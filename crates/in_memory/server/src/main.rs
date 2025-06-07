@@ -239,28 +239,31 @@ async fn main() {
             }
         }
         {
-            use walkdir::WalkDir;
+            let articles_dir = content_root.join("articles");
+            let mut stack = vec![articles_dir.clone()];
             let mut articles = state.articles.write().await;
-            let articles_root = content_root.join("articles");
-            for entry in WalkDir::new(&articles_root)
-                .into_iter()
-                .filter_map(Result::ok)
-                .filter(|e| e.file_type().is_file())
-            {
-                let without_extension = entry.path().with_extension("");
-                let slug_path = without_extension.strip_prefix(&articles_root).unwrap();
-                let slug = slug_path.to_string_lossy().replace('\\', "/");
-                let info_ap = std::fs::read_to_string(entry.path()).unwrap();
-                articles.insert(
-                    slug.clone(),
-                    ArticleState {
-                        author: "default".to_owned(),
-                        info_html: format!(
-                            "<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"
-                        ),
-                        info_ap,
-                    },
-                );
+            while let Some(dir) = stack.pop() {
+                for entry in std::fs::read_dir(&dir).unwrap() {
+                    let entry = entry.unwrap();
+                    let path = entry.path();
+                    if entry.file_type().unwrap().is_dir() {
+                        stack.push(path);
+                        continue;
+                    }
+                    let relative = path.strip_prefix(&articles_dir).unwrap();
+                    let mut without_extension = relative.to_path_buf();
+                    without_extension.set_extension("");
+                    let slug = without_extension.to_string_lossy().replace('\\', "/");
+                    let info_ap = std::fs::read_to_string(path).unwrap();
+                    articles.insert(
+                        slug.clone(),
+                        ArticleState {
+                            author: "default".to_owned(),
+                            info_html: format!("<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"),
+                            info_ap,
+                        },
+                    );
+                }
             }
         }
     }
