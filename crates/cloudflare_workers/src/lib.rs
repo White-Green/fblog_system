@@ -151,13 +151,23 @@ impl HTTPClient for WorkerState {
     type Error = reqwest::Error;
     async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
         let req = reqwest::Request::try_from(request)?;
-        let resp = reqwest::Client::new().execute(req).await?;
-        let resp: axum::http::Response<reqwest::Body> = resp.into();
-        let (parts, body) = resp.into_parts();
-        Ok(axum::http::Response::from_parts(
-            parts,
-            Body::from_stream(http_body_util::BodyDataStream::new(body)),
-        ))
+        worker::send::SendFuture::new(async move {
+            let resp = reqwest::Client::new().execute(req).await?;
+
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let bytes = resp.bytes().await?;
+
+            let mut builder = axum::http::Response::builder().status(status);
+            for (key, value) in headers.iter() {
+                builder = builder.header(key, value);
+            }
+
+            Ok(builder
+                .body(Body::from(bytes))
+                .expect("failed to build response"))
+        })
+        .await
     }
 }
 
