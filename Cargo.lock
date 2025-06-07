@@ -493,12 +493,18 @@ dependencies = [
 name = "fblog_system_frontend_cloudflare_workers"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "axum",
+ "bytes",
+ "chrono",
  "console_error_panic_hook",
  "crossbeam-utils",
+ "fblog_system_core",
  "futures",
  "http",
+ "http-body-util",
  "reqwest",
+ "rsa",
  "serde",
  "serde_json",
  "tower-service",

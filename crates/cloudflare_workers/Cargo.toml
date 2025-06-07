@@ -26,3 +26,10 @@ crossbeam-utils = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 reqwest = { workspace = true }
+fblog_system_core = { workspace = true }
+rsa = { workspace = true }
+chrono = { workspace = true }
+bytes = { workspace = true }
+arrayvec = { workspace = true }
+http-body-util = { workspace = true }
+url = { workspace = true }
