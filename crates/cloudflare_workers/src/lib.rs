@@ -78,19 +78,19 @@ impl fblog_system_core::traits::Env for WorkerState {
 
 impl ArticleProvider for WorkerState {
     async fn exists_article(&self, slug: &str) -> bool {
-        self.fetch_exists(&format!("/raw_ap_articles/{slug}.json")).await
+        self.fetch_exists(&format!("/__raw/articles/ap/{slug}.json")).await
     }
 
     async fn get_article_html(&self, slug: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw_html_articles/{slug}.html")).await
+        self.fetch_body(&format!("/__raw/articles/html/{slug}.html")).await
     }
 
     async fn get_article_ap(&self, slug: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw_ap_articles/{slug}.json")).await
+        self.fetch_body(&format!("/__raw/articles/ap/{slug}.json")).await
     }
 
     async fn get_author_id(&self, slug: &str) -> Option<String> {
-        let bytes = self.fetch_bytes(&format!("/raw_article_author/{slug}")).await?;
+        let bytes = self.fetch_bytes(&format!("/__raw/articles/author/{slug}")).await?;
         let s = String::from_utf8(bytes).ok()?;
         Some(s.trim().to_string())
     }
@@ -108,13 +108,15 @@ impl ArticleProvider for WorkerState {
 
 impl UserProvider for WorkerState {
     async fn exists_user(&self, username: &str) -> bool {
-        self.fetch_exists(&format!("/raw_ap_users/{username}")).await
+        self.fetch_exists(&format!("/__raw/users/ap/{username}")).await
     }
 
-    async fn get_user_html(&self, _username: &str) -> Option<Body> { None }
+    async fn get_user_html(&self, username: &str) -> Option<Body> {
+        self.fetch_body(&format!("/__raw/users/html/{username}.html")).await
+    }
 
     async fn get_user_ap(&self, username: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw_ap_users/{username}")).await
+        self.fetch_body(&format!("/__raw/users/ap/{username}")).await
     }
 
     async fn get_followers_html(&self, _username: &str) -> Option<Body> { None }
