@@ -71,16 +71,16 @@ impl WorkerState {
 }
 
 impl fblog_system_core::traits::Env for WorkerState {
-    fn url(&self) -> impl std::fmt::Display + Send + '_ {
-        self.env.var("URL").unwrap().to_string()
+        self.fetch_exists(&format!("/raw__/articles/ap/{slug}.json")).await
+        self.fetch_body(&format!("/raw__/articles/html/{slug}.html")).await
     }
-    fn timestamp_now(&self) -> chrono::DateTime<Utc> {
-        Utc::now()
+        self.fetch_body(&format!("/raw__/articles/ap/{slug}.json")).await
+        let bytes = self.fetch_bytes(&format!("/raw__/articles/author/{slug}")).await?;
     }
-    fn signing_key(&self) -> &RSASHA2SigningKey {
-        &self.signing_key
+        self.fetch_exists(&format!("/raw__/users/ap/{username}.json")).await
+        self.fetch_body(&format!("/raw__/users/html/{username}.html")).await
     }
-}
+        self.fetch_body(&format!("/raw__/users/ap/{username}.json")).await
 
 impl ArticleProvider for WorkerState {
     async fn exists_article(&self, slug: &str) -> bool {
