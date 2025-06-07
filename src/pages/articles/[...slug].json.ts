@@ -12,8 +12,8 @@ export async function getStaticPaths() {
     const articles = await getCollection('articles');
 
     return articles.map(article => {
-        // Extract the slug from the file path
-        const slug = article.id.split('/').pop()?.split('.')[0] || '';
+        // Use the path without the extension as the slug
+        const slug = article.id.replace(/\.md$/, '');
 
         return {
             params: {slug},

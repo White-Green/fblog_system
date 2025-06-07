@@ -239,22 +239,31 @@ async fn main() {
             }
         }
         {
+            let articles_dir = content_root.join("articles");
+            let mut stack = vec![articles_dir.clone()];
             let mut articles = state.articles.write().await;
-            for entry in content_root.join("articles").read_dir().unwrap() {
-                let entry = entry.unwrap();
-                assert!(entry.file_type().unwrap().is_file());
-                let without_extension = entry.path().with_extension("");
-                let slug = without_extension.file_name().unwrap();
-                let slug = slug.to_str().unwrap();
-                let info_ap = std::fs::read_to_string(entry.path()).unwrap();
-                articles.insert(
-                    slug.to_owned(),
-                    ArticleState {
-                        author: "default".to_owned(),
-                        info_html: format!("<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"),
-                        info_ap,
-                    },
-                );
+            while let Some(dir) = stack.pop() {
+                for entry in std::fs::read_dir(&dir).unwrap() {
+                    let entry = entry.unwrap();
+                    let path = entry.path();
+                    if entry.file_type().unwrap().is_dir() {
+                        stack.push(path);
+                        continue;
+                    }
+                    let relative = path.strip_prefix(&articles_dir).unwrap();
+                    let mut without_extension = relative.to_path_buf();
+                    without_extension.set_extension("");
+                    let slug = without_extension.to_string_lossy().replace('\\', "/");
+                    let info_ap = std::fs::read_to_string(path).unwrap();
+                    articles.insert(
+                        slug.clone(),
+                        ArticleState {
+                            author: "default".to_owned(),
+                            info_html: format!("<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"),
+                            info_ap,
+                        },
+                    );
+                }
             }
         }
     }
@@ -282,7 +291,7 @@ async fn main() {
             }),
         )
         .route(
-            "/articles/:slug",
+            "/articles/*slug",
             delete({
                 let state = state.clone();
                 async move |Path(slug): Path<String>| {
