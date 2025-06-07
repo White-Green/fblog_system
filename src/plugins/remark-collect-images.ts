@@ -6,8 +6,8 @@ interface ImageFile {
     alt?: string;
 }
 
-export function remarkCollectImages(): Plugin {
-    return (tree, file) => {
+export function remarkCollectImages(): any {
+    return (tree: any, file: any) => {
         const images: ImageFile[] = [];
 
         visit(tree, "element", (node: any) => {

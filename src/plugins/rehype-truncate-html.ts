@@ -1,5 +1,8 @@
 import {EXIT, visitParents} from 'unist-util-visit-parents';
-import type {Root, Text, Parent, Node} from 'hast';
+type Root = any;
+type Text = any;
+type Parent = any;
+type Node = any;
 
 export function rehypeTruncateHtml(
   {limit = 1500, ellipsis = '…'}: {limit?: number; ellipsis?: string} = {}
@@ -9,7 +12,7 @@ export function rehypeTruncateHtml(
     let done = false;
 
     /** 対象ノードより後ろを祖先まで遡って削除 */
-    function cutAfter(node: Node, ancestors: Parent[]) {
+    function cutAfter(node: any, ancestors: any[]) {
       let child: Node = node;
       for (let i = ancestors.length - 1; i >= 0; i--) {
         const parent = ancestors[i];
@@ -19,7 +22,7 @@ export function rehypeTruncateHtml(
       }
     }
 
-    visitParents<Text>(tree, 'text', (node, ancestors) => {
+    visitParents(tree, 'text', (node: any, ancestors: any[]) => {
       if (done) return EXIT;
 
       const remain = limit - count;
