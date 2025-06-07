@@ -13,7 +13,7 @@ fblog_system_core = { workspace = true }
 
 chrono = { workspace = true }
 reqwest = { workspace = true }
+rust-ini = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-rust-ini = { workspace = true }

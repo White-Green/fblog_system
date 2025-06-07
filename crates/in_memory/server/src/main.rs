@@ -220,7 +220,7 @@ async fn main() {
             .join("dist");
         {
             let mut users = state.users.write().await;
-            for entry in content_root.join("users").read_dir().unwrap() {
+            for entry in content_root.join("raw__").join("users").join("ap").read_dir().unwrap() {
                 let entry = entry.unwrap();
                 assert!(entry.file_type().unwrap().is_file());
                 let without_extension = entry.path().with_extension("");
@@ -239,7 +239,7 @@ async fn main() {
             }
         }
         {
-            let articles_dir = content_root.join("articles");
+            let articles_dir = content_root.join("raw__").join("articles").join("ap");
             let mut stack = vec![articles_dir.clone()];
             let mut articles = state.articles.write().await;
             while let Some(dir) = stack.pop() {

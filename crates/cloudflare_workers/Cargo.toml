@@ -15,14 +15,21 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [dependencies]
+fblog_system_core = { workspace = true }
+
+arrayvec = { workspace = true }
+axum = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+console_error_panic_hook = { workspace = true }
+crossbeam-utils = { workspace = true }
+futures = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+reqwest = { workspace = true }
+rsa = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tower-service = { workspace = true }
 worker = { workspace = true }
 worker-macros = { workspace = true }
-axum = { workspace = true }
-tower-service = { workspace = true }
-console_error_panic_hook = { workspace = true }
-http = { workspace = true }
-futures = { workspace = true }
-crossbeam-utils = { workspace = true }
-serde_json = { workspace = true }
-serde = { workspace = true }
-reqwest = { workspace = true }
