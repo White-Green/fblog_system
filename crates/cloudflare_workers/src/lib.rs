@@ -108,7 +108,7 @@ impl ArticleProvider for WorkerState {
 
 impl UserProvider for WorkerState {
     async fn exists_user(&self, username: &str) -> bool {
-        self.fetch_exists(&format!("/__raw/users/ap/{username}")).await
+        self.fetch_exists(&format!("/__raw/users/ap/{username}.json")).await
     }
 
     async fn get_user_html(&self, username: &str) -> Option<Body> {
@@ -116,7 +116,7 @@ impl UserProvider for WorkerState {
     }
 
     async fn get_user_ap(&self, username: &str) -> Option<Body> {
-        self.fetch_body(&format!("/__raw/users/ap/{username}")).await
+        self.fetch_body(&format!("/__raw/users/ap/{username}.json")).await
     }
 
     async fn get_followers_html(&self, _username: &str) -> Option<Body> { None }
