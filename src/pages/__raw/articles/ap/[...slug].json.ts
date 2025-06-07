@@ -51,7 +51,7 @@ export async function GET({params, props, request}) {
     const contentHtml = `<a href="${baseUrl}/articles/${slug}"><strong>【${article.data.title}】</strong></a>${String(vFile)}`;
 
     // Extract image references from the collected data
-    const attachments: any[] = [];
+    const attachments = [];
     if (vFile.data.images && Array.isArray(vFile.data.images)) {
         for (const image of vFile.data.images) {
             attachments.push({
