@@ -1,4 +1,6 @@
 use axum::body::Body;
+use worker::HttpResponse;
+use worker::Body as WorkerBody;
 use axum::http::{Request, Uri};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
@@ -10,11 +12,10 @@ use chrono::{DateTime, Utc};
 use bytes::Bytes;
 use arrayvec::ArrayVec;
 use serde_json;
-use http_body_util::BodyDataStream;
+use http_body_util::{BodyDataStream, BodyExt};
 use worker::{event, Fetch, Context, Env, HttpRequest};
 use url::Url;
 use tower_service::Service;
-use tower::ServiceExt;
 
 #[derive(Clone)]
 struct WorkerState {
@@ -33,16 +34,43 @@ impl WorkerState {
             .map_or_else(|_| StatusCode::NOT_FOUND.into_response(), IntoResponse::into_response)
     }
 
-    async fn fetch_bytes(&self, path: &str) -> Option<Vec<u8>> {
+    async fn fetch_exists(&self, path: &str) -> bool {
+        let url = match Url::parse(&format!("{}{}", self.base_url(), path)) {
+            Ok(u) => u,
+            Err(_) => return false,
+        };
+        worker::send::SendFuture::new(async move {
+            let resp = Fetch::Url(url).send().await.ok()?;
+            Some((200..400).contains(&resp.status_code()))
+        })
+        .await
+        .unwrap_or(false)
+    }
+
+    async fn fetch_response(&self, path: &str) -> Option<HttpResponse> {
         let url = Url::parse(&format!("{}{}", self.base_url(), path)).ok()?;
         worker::send::SendFuture::new(async move {
-            let mut resp = Fetch::Url(url).send().await.ok()?;
+            let resp = Fetch::Url(url).send().await.ok()?;
             if !(200..400).contains(&resp.status_code()) {
                 return None;
             }
-            resp.bytes().await.ok()
+            let resp: HttpResponse = resp.try_into().ok()?;
+            Some(resp)
         })
         .await
+    }
+
+    async fn fetch_bytes(&self, path: &str) -> Option<Vec<u8>> {
+        let resp = self.fetch_response(path).await?;
+        let (_parts, body) = resp.into_parts();
+        let data = BodyExt::collect(body).await.ok()?;
+        Some(data.to_bytes().to_vec())
+    }
+
+    async fn fetch_body(&self, path: &str) -> Option<Body> {
+        let resp = self.fetch_response(path).await?;
+        let (_parts, body) = resp.into_parts();
+        Some(Body::from_stream(BodyDataStream::new(body)))
     }
 }
 
@@ -54,19 +82,15 @@ impl fblog_system_core::traits::Env for WorkerState {
 
 impl ArticleProvider for WorkerState {
     async fn exists_article(&self, slug: &str) -> bool {
-        self.fetch_bytes(&format!("/raw_ap_articles/{slug}")).await.is_some()
+        self.fetch_exists(&format!("/raw_ap_articles/{slug}")).await
     }
 
     async fn get_article_html(&self, slug: &str) -> Option<Body> {
-        self.fetch_bytes(&format!("/raw_html_articles/{slug}.html"))
-            .await
-            .map(Body::from)
+        self.fetch_body(&format!("/raw_html_articles/{slug}.html")).await
     }
 
     async fn get_article_ap(&self, slug: &str) -> Option<Body> {
-        self.fetch_bytes(&format!("/raw_ap_articles/{slug}"))
-            .await
-            .map(Body::from)
+        self.fetch_body(&format!("/raw_ap_articles/{slug}")).await
     }
 
     async fn get_author_id(&self, slug: &str) -> Option<String> {
@@ -89,15 +113,13 @@ impl ArticleProvider for WorkerState {
 
 impl UserProvider for WorkerState {
     async fn exists_user(&self, username: &str) -> bool {
-        self.fetch_bytes(&format!("/raw_ap_users/{username}")).await.is_some()
+        self.fetch_exists(&format!("/raw_ap_users/{username}")).await
     }
 
     async fn get_user_html(&self, _username: &str) -> Option<Body> { None }
 
     async fn get_user_ap(&self, username: &str) -> Option<Body> {
-        self.fetch_bytes(&format!("/raw_ap_users/{username}"))
-            .await
-            .map(Body::from)
+        self.fetch_body(&format!("/raw_ap_users/{username}")).await
     }
 
     async fn get_followers_html(&self, _username: &str) -> Option<Body> { None }
@@ -142,6 +164,9 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let state = WorkerState { env: env.clone(), signing_key };
-    let mut router = router(state.clone()).fallback(fallback);
-    Ok(router.call(req).await?)
+    let mut service = router(state.clone())
+        .fallback(fallback)
+        .with_state::<()>(state)
+        .into_service::<WorkerBody>();
+    Ok(Service::call(&mut service, req).await?)
 }
