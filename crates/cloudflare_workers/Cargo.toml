@@ -32,4 +32,3 @@ chrono = { workspace = true }
 bytes = { workspace = true }
 arrayvec = { workspace = true }
 http-body-util = { workspace = true }
-url = { workspace = true }

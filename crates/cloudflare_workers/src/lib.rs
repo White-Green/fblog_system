@@ -8,13 +8,12 @@ use futures::{Future, Stream};
 use http::StatusCode;
 use axum::response::IntoResponse;
 use rsa::pkcs8::DecodePrivateKey;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use bytes::Bytes;
 use arrayvec::ArrayVec;
 use serde_json;
 use http_body_util::{BodyDataStream, BodyExt};
-use worker::{event, Fetch, Context, Env, HttpRequest};
-use url::Url;
+use worker::{event, Context, Env, HttpRequest};
 use tower_service::Service;
 
 #[derive(Clone)]
@@ -25,7 +24,6 @@ struct WorkerState {
 
 impl WorkerState {
     fn assets(&self) -> worker::Fetcher { self.env.assets("ASSETS").unwrap() }
-    fn base_url(&self) -> String { self.env.var("URL").unwrap().to_string() }
 
     async fn fetch_asset(&self, uri: Uri) -> http::Response<Body> {
         self.assets()
@@ -35,26 +33,24 @@ impl WorkerState {
     }
 
     async fn fetch_exists(&self, path: &str) -> bool {
-        let url = match Url::parse(&format!("{}{}", self.base_url(), path)) {
-            Ok(u) => u,
-            Err(_) => return false,
-        };
+        let fetcher = self.assets();
+        let path = path.to_string();
         worker::send::SendFuture::new(async move {
-            let resp = Fetch::Url(url).send().await.ok()?;
-            Some((200..400).contains(&resp.status_code()))
+            let resp = fetcher.fetch(&path, None).await.ok()?;
+            Some((200..400).contains(&resp.status().as_u16()))
         })
         .await
         .unwrap_or(false)
     }
 
     async fn fetch_response(&self, path: &str) -> Option<HttpResponse> {
-        let url = Url::parse(&format!("{}{}", self.base_url(), path)).ok()?;
+        let fetcher = self.assets();
+        let path = path.to_string();
         worker::send::SendFuture::new(async move {
-            let resp = Fetch::Url(url).send().await.ok()?;
-            if !(200..400).contains(&resp.status_code()) {
+            let resp = fetcher.fetch(&path, None).await.ok()?;
+            if !(200..400).contains(&resp.status().as_u16()) {
                 return None;
             }
-            let resp: HttpResponse = resp.try_into().ok()?;
             Some(resp)
         })
         .await
