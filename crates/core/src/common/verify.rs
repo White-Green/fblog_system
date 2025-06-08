@@ -1,6 +1,5 @@
 use crate::traits::HTTPClient;
 use axum::http::HeaderMap;
-use axum::http::header::{DATE, HOST};
 use base64::Engine;
 use bytes::Bytes;
 use rsa::RsaPublicKey;
@@ -69,52 +68,47 @@ where
         tracing::warn!(algo = %algorithm, "unsupported algorithm");
         return VerifyResult::CannotVerify;
     }
-    if signed_headers != "(request-target) date host digest" {
-        tracing::warn!(headers = %signed_headers, "invalid signed headers");
-        return VerifyResult::CannotVerify;
+    let mut sign_target = String::new();
+    let mut first = true;
+    for header_name in signed_headers.split_whitespace() {
+        if !first {
+            sign_target.push('\n');
+        }
+        first = false;
+
+        if header_name.eq_ignore_ascii_case("(request-target)") {
+            sign_target.push_str("(request-target): ");
+            sign_target.push_str(&format!("{} {}", method.to_lowercase(), path));
+        } else {
+            let name = match axum::http::header::HeaderName::from_bytes(header_name.as_bytes()) {
+                Ok(n) => n,
+                Err(_) => {
+                    tracing::warn!(header = %header_name, "invalid header name");
+                    return VerifyResult::CannotVerify;
+                }
+            };
+            let value = match headers.get(&name).and_then(|v| v.to_str().ok()) {
+                Some(v) => v,
+                None => {
+                    tracing::warn!(header = %header_name, "missing signed header");
+                    return VerifyResult::CannotVerify;
+                }
+            };
+            if header_name.eq_ignore_ascii_case("digest") {
+                let computed_digest = {
+                    let mut hasher = Sha256::new();
+                    hasher.update(body);
+                    let out = hasher.finalize();
+                    base64::engine::general_purpose::STANDARD.encode(out)
+                };
+                if value != format!("SHA-256={}", computed_digest) {
+                    tracing::warn!("digest mismatch");
+                    return VerifyResult::Failed;
+                }
+            }
+            sign_target.push_str(&format!("{}: {}", header_name.to_ascii_lowercase(), value));
+        }
     }
-
-    let date = match headers.get(DATE).and_then(|v| v.to_str().ok()) {
-        Some(v) => v,
-        None => {
-            tracing::warn!("missing date header");
-            return VerifyResult::CannotVerify;
-        }
-    };
-    let host = match headers.get(HOST).and_then(|v| v.to_str().ok()) {
-        Some(v) => v,
-        None => {
-            tracing::warn!("missing host header");
-            return VerifyResult::CannotVerify;
-        }
-    };
-    let digest_header = match headers.get("digest").and_then(|v| v.to_str().ok()) {
-        Some(v) => v,
-        None => {
-            tracing::warn!("missing digest header");
-            return VerifyResult::CannotVerify;
-        }
-    };
-
-    let computed_digest = {
-        let mut hasher = Sha256::new();
-        hasher.update(body);
-        let out = hasher.finalize();
-        base64::engine::general_purpose::STANDARD.encode(out)
-    };
-    if digest_header != format!("SHA-256={}", computed_digest) {
-        tracing::warn!("digest mismatch");
-        return VerifyResult::Failed;
-    }
-
-    let sign_target = format!(
-        "(request-target): {} {}\ndate: {}\nhost: {}\ndigest: {}",
-        method.to_lowercase(),
-        path,
-        date,
-        host,
-        digest_header,
-    );
 
     let actor_url = key_id.split('#').next().unwrap_or(&key_id);
     #[derive(Deserialize)]
