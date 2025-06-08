@@ -25,6 +25,7 @@ use tracing::Level;
 #[derive(Clone)]
 struct Follower {
     id: String,
+    inbox: String,
     event_id: String,
 }
 
@@ -32,7 +33,6 @@ struct UserState {
     info_html: String,
     info_ap: String,
     followers: Vec<Follower>,
-    followers_inbox: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -180,14 +180,8 @@ impl UserProvider for InMemoryServer {
 
     async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
         let mut users = self.users.write().await;
-        if let Some(UserState {
-            followers, followers_inbox, ..
-        }) = users.get_mut(username)
-        {
-            followers.push(Follower { id: follower_id, event_id });
-            if !followers_inbox.iter().any(|x| x == &inbox) {
-                followers_inbox.push(inbox);
-            }
+        if let Some(UserState { followers, .. }) = users.get_mut(username) {
+            followers.push(Follower { id: follower_id, inbox, event_id });
         }
     }
 
@@ -202,8 +196,19 @@ impl UserProvider for InMemoryServer {
 
     async fn get_followers_inbox(&self, username: &str) -> impl Stream<Item = String> + Send {
         let users = self.users.clone().read_owned().await;
-        let followers_inbox = users.get(username).map(|user| user.followers_inbox.clone());
-        stream::iter(followers_inbox.map(|followers_inbox| followers_inbox.into_iter()).into_iter().flatten())
+        let inboxes = users
+            .get(username)
+            .map(|user| {
+                let mut unique = std::collections::HashSet::new();
+                user.followers.iter().filter_map(|f| {
+                    if unique.insert(f.inbox.clone()) {
+                        Some(f.inbox.clone())
+                    } else {
+                        None
+                    }
+                }).collect::<Vec<_>>()
+            });
+        stream::iter(inboxes.into_iter().flatten())
     }
 }
 
@@ -255,7 +260,6 @@ async fn main() {
                         info_html: format!("<!DOCTYPE html><html><head></head><body><h1>{username}'s UserPage</h1></body></html>"),
                         info_ap,
                         followers: vec![],
-                        followers_inbox: vec![],
                     },
                 );
             }
