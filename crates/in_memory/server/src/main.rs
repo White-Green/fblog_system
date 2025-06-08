@@ -194,6 +194,15 @@ impl UserProvider for InMemoryServer {
         }
     }
 
+    async fn remove_follower_by_actor(&self, username: &str, actor: String) {
+        let mut users = self.users.write().await;
+        if let Some(UserState { followers, .. }) = users.get_mut(username) {
+            if let Some(pos) = followers.iter().position(|f| f.id == actor) {
+                followers.remove(pos);
+            }
+        }
+    }
+
     async fn get_followers_inbox(&self, username: &str) -> impl Stream<Item = String> + Send {
         let users = self.users.clone().read_owned().await;
         let inboxes = users

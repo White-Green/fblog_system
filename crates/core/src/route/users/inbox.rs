@@ -31,7 +31,12 @@ where
         match data {
             SpecializedInboxData::Follow { actor, object, id } => QueueData::Follow { username, actor, object, id },
             SpecializedInboxData::Undo { object } => match object {
-                UndoObject::Follow { id } => QueueData::Unfollow { username, id: id.into_id() },
+                UndoObject::Follow { id, actor, object } => QueueData::Unfollow {
+                    username,
+                    id: id.into_id(),
+                    actor,
+                    object,
+                },
             },
         }
     } else if let Ok(data) = serde_json::from_str::<InboxData>(&data) {
@@ -59,7 +64,13 @@ where
     #[derive(Debug, Deserialize)]
     #[serde(tag = "type")]
     enum UndoObject {
-        Follow { id: AnyId },
+        Follow {
+            id: AnyId,
+            #[serde(default)]
+            actor: Option<String>,
+            #[serde(default)]
+            object: Option<String>,
+        },
     }
 
     #[derive(Debug, Deserialize)]

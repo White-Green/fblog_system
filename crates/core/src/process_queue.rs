@@ -371,8 +371,14 @@ where
                 shared_inbox: Option<String>,
             }
         }
-        QueueData::Unfollow { username, id } => {
+        QueueData::Unfollow { username, id, actor, object } => {
             state.remove_follower(&username, id).await;
+            if let (Some(actor), Some(object)) = (actor, object) {
+                let url = state.url();
+                if object == format!("{url}/users/{username}") {
+                    state.remove_follower_by_actor(&username, actor).await;
+                }
+            }
             return ProcessQueueResult::Finished;
         }
     }

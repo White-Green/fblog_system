@@ -269,6 +269,25 @@ impl UserProvider for WorkerState {
         }
     }
 
+    #[worker::send]
+    async fn remove_follower_by_actor(&self, username: &str, actor: String) {
+        match worker::query!(
+            self.db.as_ref(),
+            "DELETE FROM followers WHERE username = ?1 AND follower_id = ?2",
+            &username,
+            &actor,
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "failed to delete follower by actor");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare delete follower by actor");
+            }
+        }
+    }
+
     #[allow(refining_impl_trait)]
     fn get_followers_inbox(&self, username: &str) -> impl Future<Output = impl Stream<Item = String> + Send> + Send {
         let username = username.to_owned();
