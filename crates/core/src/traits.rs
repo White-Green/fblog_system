@@ -67,6 +67,8 @@ pub enum QueueData {
         username: String,
         ty: String,
         id: String,
+        body: Option<String>,
+        verified: bool,
     },
     DeliveryNewArticleToAll {
         slug: String,
@@ -98,6 +100,7 @@ pub enum QueueData {
         actor: String,
         object: String,
         id: String,
+        verified: bool,
     },
     Unfollow {
         username: String,

@@ -33,9 +33,25 @@ where
 {
     tracing::info!("process queue: {:?}", data);
     match data {
-        QueueData::Inbox { username, ty, id } => {
-            let Ok(body): Result<ResponseBody, _> = get_ap_data(&id, state).await else {
-                return ProcessQueueResult::Finished;
+        QueueData::Inbox {
+            username,
+            ty,
+            id,
+            body,
+            verified,
+        } => {
+            let body: ResponseBody = if verified {
+                match serde_json::from_str(body.as_deref().unwrap_or("")) {
+                    Ok(b) => b,
+                    Err(_) => {
+                        return ProcessQueueResult::Finished;
+                    }
+                }
+            } else {
+                let Ok(b) = get_ap_data(&id, state).await else {
+                    return ProcessQueueResult::Finished;
+                };
+                b
             };
             tracing::info!("body: {:?}", body);
             match body {
@@ -283,11 +299,31 @@ where
                 }
             }
         }
-        QueueData::Follow { username, actor, object, id } => {
+        QueueData::Follow {
+            username,
+            actor,
+            object,
+            id,
+            verified,
+        } => {
             let url = state.url();
             if object != format!("{url}/users/{username}") {
                 tracing::warn!("invalid object");
                 return ProcessQueueResult::Finished;
+            }
+            if !verified {
+                #[derive(Deserialize)]
+                struct FollowEvent {
+                    actor: String,
+                    object: String,
+                }
+                let Ok(event): Result<FollowEvent, _> = get_ap_data(&id, state).await else {
+                    return ProcessQueueResult::Finished;
+                };
+                if event.actor != actor || event.object != object {
+                    tracing::warn!("follow event mismatch");
+                    return ProcessQueueResult::Finished;
+                }
             }
             let Ok(user): Result<Person, _> = get_ap_data(&actor, state).await else {
                 return ProcessQueueResult::Finished;
