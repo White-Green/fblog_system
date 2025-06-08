@@ -157,8 +157,20 @@ impl UserProvider for WorkerState {
 
     #[worker::send]
     async fn get_followers_html(&self, username: &str) -> Option<Body> {
-        let stmt = worker::query!(self.db.as_ref(), "SELECT follower_id FROM followers WHERE username = ?1", &username).ok()?;
-        let rows: Vec<Vec<String>> = stmt.raw().await.ok()?;
+        let stmt = match worker::query!(self.db.as_ref(), "SELECT follower_id FROM followers WHERE username = ?1", &username) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare get_followers_html");
+                return None;
+            }
+        };
+        let rows: Vec<Vec<String>> = match stmt.raw().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to run get_followers_html");
+                return None;
+            }
+        };
         let followers = rows.into_iter().filter_map(|mut r| r.pop()).collect::<Vec<_>>().join(", ");
         Some(Body::from(followers))
     }
@@ -167,9 +179,19 @@ impl UserProvider for WorkerState {
     async fn get_followers_len(&self, username: &str) -> usize {
         let stmt = match worker::query!(self.db.as_ref(), "SELECT COUNT(*) as cnt FROM followers WHERE username = ?1", &username) {
             Ok(s) => s,
-            Err(_) => return 0,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare get_followers_len");
+                return 0;
+            }
         };
-        stmt.first::<u64>(Some("cnt")).await.ok().flatten().unwrap_or(0) as usize
+        match stmt.first::<u64>(Some("cnt")).await {
+            Ok(Some(n)) => n as usize,
+            Ok(None) => 0,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to execute get_followers_len");
+                0
+            }
+        }
     }
 
     #[worker::send]
@@ -184,11 +206,17 @@ impl UserProvider for WorkerState {
             &(offset as i64),
         ) {
             Ok(s) => s,
-            Err(_) => return (ArrayVec::new(), offset),
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare get_follower_ids_until");
+                return (ArrayVec::new(), offset);
+            }
         };
         let rows: Vec<Vec<String>> = match stmt.raw().await {
             Ok(r) => r,
-            Err(_) => return (ArrayVec::new(), offset),
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to execute get_follower_ids_until");
+                return (ArrayVec::new(), offset);
+            }
         };
         let mut vec = ArrayVec::<String, 10>::new();
         for mut row in rows {
@@ -203,7 +231,7 @@ impl UserProvider for WorkerState {
 
     #[worker::send]
     async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
-        if let Ok(stmt) = worker::query!(
+        match worker::query!(
             self.db.as_ref(),
             "INSERT INTO followers (username, follower_id, inbox, event_id) VALUES (?1, ?2, ?3, ?4)",
             &username,
@@ -211,7 +239,14 @@ impl UserProvider for WorkerState {
             &inbox,
             &event_id,
         ) {
-            let _ = stmt.run().await;
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "failed to insert follower");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare insert follower");
+            }
         }
     }
 
@@ -221,8 +256,17 @@ impl UserProvider for WorkerState {
         let db = self.db.as_ref();
         worker::send::SendFuture::new(async move {
             let rows: Vec<Vec<String>> = match worker::query!(db, "SELECT DISTINCT inbox FROM followers WHERE username = ?1", &username) {
-                Ok(s) => s.raw().await.unwrap_or_default(),
-                Err(_) => Vec::new(),
+                Ok(stmt) => match stmt.raw().await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(error = ?e, "failed to execute get_followers_inbox");
+                        Vec::new()
+                    }
+                },
+                Err(e) => {
+                    tracing::error!(error = ?e, "failed to prepare get_followers_inbox");
+                    Vec::new()
+                }
             };
             let iter = rows.into_iter().filter_map(|mut r| r.pop());
             futures::stream::iter(iter)
@@ -261,7 +305,7 @@ impl HTTPClient for WorkerState {
 }
 
 async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
-    let _ = db
+    if let Err(e) = db
         .exec(
             "CREATE TABLE IF NOT EXISTS followers (
                 username TEXT,
@@ -270,7 +314,10 @@ async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
                 event_id TEXT
             )",
         )
-        .await;
+        .await
+    {
+        tracing::error!(error = ?e, "failed to initialize database");
+    }
 }
 
 #[event(start)]
