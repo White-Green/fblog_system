@@ -30,6 +30,9 @@ where
         tracing::info!("specialized inbox data: {data:?}");
         match data {
             SpecializedInboxData::Follow { actor, object, id } => QueueData::Follow { username, actor, object, id },
+            SpecializedInboxData::Undo { object } => match object {
+                UndoObject::Follow { id } => QueueData::Unfollow { username, id: id.into_id() },
+            },
         }
     } else if let Ok(data) = serde_json::from_str::<InboxData>(&data) {
         tracing::info!("inbox data: {data:?}");
@@ -50,6 +53,29 @@ where
     #[serde(tag = "type")]
     enum SpecializedInboxData {
         Follow { actor: String, object: String, id: String },
+        Undo { object: UndoObject },
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(tag = "type")]
+    enum UndoObject {
+        Follow { id: AnyId },
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(untagged)]
+    enum AnyId {
+        String(String),
+        Object { id: String },
+    }
+
+    impl AnyId {
+        fn into_id(self) -> String {
+            match self {
+                AnyId::String(id) => id,
+                AnyId::Object { id } => id,
+            }
+        }
     }
     #[derive(Debug, Deserialize)]
     struct InboxData {

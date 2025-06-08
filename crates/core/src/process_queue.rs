@@ -371,6 +371,10 @@ where
                 shared_inbox: Option<String>,
             }
         }
+        QueueData::Unfollow { username, id } => {
+            state.remove_follower(&username, id).await;
+            return ProcessQueueResult::Finished;
+        }
     }
 
     #[derive(Debug, Deserialize)]
