@@ -160,11 +160,7 @@ impl UserProvider for InMemoryServer {
         users.get(username).map(|state| state.followers.len()).unwrap_or(0)
     }
 
-    async fn get_follower_ids_until(
-        &self,
-        username: &str,
-        until: u64,
-    ) -> (ArrayVec<String, 10>, u64) {
+    async fn get_follower_ids_until(&self, username: &str, until: u64) -> (ArrayVec<String, 10>, u64) {
         let map = self.users.read().await;
         match map.get(username) {
             Some(UserState { followers: list, .. }) => {
@@ -182,13 +178,7 @@ impl UserProvider for InMemoryServer {
         }
     }
 
-    async fn add_follower(
-        &self,
-        username: &str,
-        follower_id: String,
-        inbox: String,
-        event_id: String,
-    ) {
+    async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
         let mut users = self.users.write().await;
         if let Some(UserState {
             followers, followers_inbox, ..
@@ -253,9 +243,7 @@ async fn main() {
                 users.insert(
                     username.to_owned(),
                     UserState {
-                        info_html: format!(
-                            "<!DOCTYPE html><html><head></head><body><h1>{username}'s UserPage</h1></body></html>"
-                        ),
+                        info_html: format!("<!DOCTYPE html><html><head></head><body><h1>{username}'s UserPage</h1></body></html>"),
                         info_ap,
                         followers: vec![],
                         followers_inbox: vec![],
