@@ -82,6 +82,42 @@ impl MisskeyClient<'_> {
         }
     }
 
+    pub async fn unfollow(&self, user_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/following/delete", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({ "i": self.token, "userId": user_id })).unwrap())
+            .send()
+            .await
+            .unwrap();
+        loop {
+            let response = self
+                .client
+                .post(format!("{}/api/i", self.base_url))
+                .header("Content-Type", "application/json")
+                .body(serde_json::to_string(&serde_json::json!({ "i": self.token })).unwrap())
+                .send()
+                .await
+                .unwrap()
+                .json::<serde_json::Value>()
+                .await
+                .unwrap();
+            if response["followingCount"].as_i64().unwrap() == 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        let body = response.json().await.unwrap();
+        if succeed {
+            Ok(body)
+        } else {
+            Err(format!("{response_dump}\n{:#?}", body).into())
+        }
+    }
+
     pub async fn fetch_timeline(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error>> {
         let response = self
             .client
