@@ -4,6 +4,7 @@ use axum::http::Request;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use chrono::Utc;
+use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
 use futures::stream::TryStreamExt;
@@ -20,8 +21,7 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
-use worker::{Context, Env, HttpRequest, event, MessageExt};
-use fblog_system_core::process_queue::{process_queue, ProcessQueueResult};
+use worker::{Context, Env, HttpRequest, MessageExt, event};
 
 struct SendStream<S> {
     inner: S,
@@ -197,7 +197,7 @@ impl HTTPClient for WorkerState {
 
             Ok(builder.body(body).expect("failed to build response"))
         })
-            .await
+        .await
     }
 }
 
