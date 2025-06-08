@@ -122,6 +122,42 @@ impl MastodonClient<'_> {
         }
     }
 
+    pub async fn unfollow(&self, user_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/accounts/{user_id}/unfollow", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .send()
+            .await
+            .unwrap();
+        loop {
+            let response = self
+                .client
+                .get(format!("{}/api/v1/accounts/{user_id}", self.base_url))
+                .bearer_auth(self.token.as_ref().unwrap())
+                .header(ACCEPT, "application/json")
+                .send()
+                .await
+                .unwrap()
+                .json::<serde_json::Value>()
+                .await
+                .unwrap();
+            if response["followers_count"].as_i64().unwrap() == 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(response.json().await.unwrap())
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
     pub async fn fetch_timeline(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error>> {
         let response = self
             .client

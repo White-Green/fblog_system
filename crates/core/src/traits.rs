@@ -56,6 +56,8 @@ pub trait UserProvider {
     fn get_follower_ids_until(&self, username: &str, until: u64) -> impl Future<Output = (ArrayVec<String, 10>, u64)> + Send;
 
     fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) -> impl Future<Output = ()> + Send;
+    fn remove_follower(&self, username: &str, event_id: String) -> impl Future<Output = ()> + Send;
+    fn remove_follower_by_actor(&self, username: &str, actor: String) -> impl Future<Output = ()> + Send;
     fn get_followers_inbox(&self, username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send;
 }
 
@@ -96,6 +98,12 @@ pub enum QueueData {
         actor: String,
         object: String,
         id: String,
+    },
+    Unfollow {
+        username: String,
+        id: String,
+        actor: Option<String>,
+        object: Option<String>,
     },
 }
 

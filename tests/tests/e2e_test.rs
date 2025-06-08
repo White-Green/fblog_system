@@ -124,5 +124,26 @@ fn main() {
             wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 2),
             wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 2),
         );
+
+        tokio::try_join!(
+            sharkey.unfollow(sharkey_note["object"]["user"]["id"].as_str().unwrap()),
+            misskey.unfollow(misskey_note["object"]["user"]["id"].as_str().unwrap()),
+            mastodon.unfollow(mastodon_note["account"]["id"].as_str().unwrap()),
+        )
+        .unwrap();
+
+        in_memory
+            .send_queue_data(QueueData::DeliveryNewArticleToAll {
+                slug: "second-post".to_owned(),
+            })
+            .await;
+
+        tokio::time::sleep(Duration::from_secs(10)).await;
+
+        tokio::join!(
+            async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 2) },
+        );
     });
 }
