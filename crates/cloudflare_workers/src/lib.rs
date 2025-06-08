@@ -11,11 +11,16 @@ use futures::{Future, Stream};
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
+use std::fmt::Display;
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
 use tower_service::Service;
-use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, console_log, event};
+use tracing_subscriber::fmt::format::Pretty;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_web::MakeConsoleWriter;
+use worker::{Context, Env, HttpRequest, HttpResponse, console_log, event};
 
 struct SendStream<S> {
     inner: S,
@@ -42,48 +47,12 @@ impl WorkerState {
         self.env.assets("ASSETS").unwrap()
     }
 
-    async fn fetch_asset(&self, uri: Uri) -> http::Response<Body> {
+    #[worker::send]
+    async fn fetch_asset(&self, path: impl Display) -> http::Response<Body> {
         self.assets()
-            .fetch(uri.to_string(), None)
+            .fetch(format!("http://localhost{path}"), None)
             .await
             .map_or_else(|_| StatusCode::NOT_FOUND.into_response(), IntoResponse::into_response)
-    }
-
-    async fn fetch_exists(&self, path: &str) -> bool {
-        let fetcher = self.assets();
-        let path = path.to_string();
-        worker::send::SendFuture::new(async move {
-            let resp = fetcher.fetch(&path, None).await.ok()?;
-            Some((200..400).contains(&resp.status().as_u16()))
-        })
-        .await
-        .unwrap_or(false)
-    }
-
-    async fn fetch_response(&self, path: &str) -> Option<HttpResponse> {
-        let fetcher = self.assets();
-        let path = path.to_string();
-        worker::send::SendFuture::new(async move {
-            let resp = fetcher.fetch(&path, None).await.ok()?;
-            if !(200..400).contains(&resp.status().as_u16()) {
-                return None;
-            }
-            Some(resp)
-        })
-        .await
-    }
-
-    async fn fetch_bytes(&self, path: &str) -> Option<Vec<u8>> {
-        let resp = self.fetch_response(path).await?;
-        let (_parts, body) = resp.into_parts();
-        let data = BodyExt::collect(body).await.ok()?;
-        Some(data.to_bytes().to_vec())
-    }
-
-    async fn fetch_body(&self, path: &str) -> Option<Body> {
-        let resp = self.fetch_response(path).await?;
-        let (_parts, body) = resp.into_parts();
-        Some(Body::from_stream(BodyDataStream::new(body)))
     }
 }
 
@@ -100,22 +69,47 @@ impl fblog_system_core::traits::Env for WorkerState {
 }
 
 impl ArticleProvider for WorkerState {
+    #[worker::send]
     async fn exists_article(&self, slug: &str) -> bool {
-        self.fetch_exists(&format!("/raw__/articles/ap/{slug}.json")).await
+        tracing::trace!("exists_article: {}", slug);
+        self.fetch_asset(format_args!("/raw__/articles/ap/{slug}.json"))
+            .await
+            .status()
+            .is_success()
     }
 
+    #[worker::send]
     async fn get_article_html(&self, slug: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw__/articles/html/{slug}.html")).await
+        tracing::trace!("get_article_html: {}", slug);
+        let response = self.fetch_asset(format_args!("/raw__/articles/html/{slug}.html")).await;
+        if response.status().is_success() {
+            Some(Body::from_stream(BodyDataStream::new(response.into_body())))
+        } else {
+            None
+        }
     }
 
+    #[worker::send]
     async fn get_article_ap(&self, slug: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw__/articles/ap/{slug}.json")).await
+        tracing::trace!("get_article_ap: {}", slug);
+        let response = self.fetch_asset(format_args!("/raw__/articles/ap/{slug}.json")).await;
+        if response.status().is_success() {
+            Some(Body::from_stream(BodyDataStream::new(response.into_body())))
+        } else {
+            None
+        }
     }
 
+    #[worker::send]
     async fn get_author_id(&self, slug: &str) -> Option<String> {
-        let bytes = self.fetch_bytes(&format!("/raw__/articles/author/{slug}")).await?;
-        let s = String::from_utf8(bytes).ok()?;
-        Some(s.trim().to_string())
+        let response = self.fetch_asset(format_args!("/raw__/articles/author/{slug}")).await;
+        if !response.status().is_success() {
+            return None;
+        }
+        let body = BodyExt::collect(response.into_body()).await.ok()?;
+        let data = body.to_bytes().to_vec();
+        let author_id = String::from_utf8(data).ok()?;
+        Some(author_id)
     }
 
     async fn add_comment_raw(&self, _data: Vec<u8>) {}
@@ -130,16 +124,32 @@ impl ArticleProvider for WorkerState {
 }
 
 impl UserProvider for WorkerState {
+    #[worker::send]
     async fn exists_user(&self, username: &str) -> bool {
-        self.fetch_exists(&format!("/raw__/users/ap/{username}.json")).await
+        self.fetch_asset(format_args!("/raw__/users/ap/{username}.json"))
+            .await
+            .status()
+            .is_success()
     }
 
+    #[worker::send]
     async fn get_user_html(&self, username: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw__/users/html/{username}.html")).await
+        let response = self.fetch_asset(format_args!("/raw__/users/html/{username}.html")).await;
+        if response.status().is_success() {
+            Some(Body::from_stream(BodyDataStream::new(response.into_body())))
+        } else {
+            None
+        }
     }
 
+    #[worker::send]
     async fn get_user_ap(&self, username: &str) -> Option<Body> {
-        self.fetch_body(&format!("/raw__/users/ap/{username}.json")).await
+        let response = self.fetch_asset(format_args!("/raw__/users/ap/{username}.json")).await;
+        if response.status().is_success() {
+            Some(Body::from_stream(BodyDataStream::new(response.into_body())))
+        } else {
+            None
+        }
     }
 
     async fn get_followers_html(&self, _username: &str) -> Option<Body> {
@@ -180,8 +190,18 @@ impl HTTPClient for WorkerState {
 
             Ok(builder.body(body).expect("failed to build response"))
         })
-        .await
+            .await
     }
+}
+
+#[event(start)]
+fn start() {
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .without_time()
+        .with_writer(MakeConsoleWriter);
+    let perf_layer = tracing_web::performance_layer().with_details_from_fields(Pretty::default());
+    tracing_subscriber::registry().with(fmt_layer).with(perf_layer).init();
 }
 
 #[event(fetch)]
@@ -193,6 +213,5 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
         env: env.clone(),
         signing_key,
     };
-    let mut service = router(state.clone()).with_state::<()>(state).into_service::<WorkerBody>();
-    Ok(Service::call(&mut service, req).await?)
+    Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
 }
