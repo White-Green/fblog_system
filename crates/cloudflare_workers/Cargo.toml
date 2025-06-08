@@ -35,5 +35,5 @@ tower-service = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { workspace = true }
-worker = { workspace = true }
+worker = { workspace = true, features = ["http", "axum", "queue", "d1"] }
 worker-macros = { workspace = true }
