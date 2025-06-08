@@ -6,15 +6,16 @@ use bytes::Bytes;
 use chrono::Utc;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
-use futures::{Future, Stream};
 use futures::stream::TryStreamExt;
-use std::pin::Pin;
-use std::task::{Context as TaskContext, Poll};
+use futures::{Future, Stream};
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
+use std::mem;
+use std::pin::Pin;
+use std::task::{Context as TaskContext, Poll};
 use tower_service::Service;
-use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, event};
+use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, console_log, event};
 
 struct SendStream<S> {
     inner: S,
@@ -168,30 +169,19 @@ impl HTTPClient for WorkerState {
     async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
         let req = reqwest::Request::try_from(request)?;
         worker::send::SendFuture::new(async move {
-            let resp = reqwest::Client::new().execute(req).await?;
+            let mut resp = reqwest::Client::new().execute(req).await?;
 
             let status = resp.status();
-            let headers = resp.headers().clone();
+            let mut builder = axum::http::Response::builder().status(status);
+            *builder.headers_mut().unwrap() = http::header::HeaderMap::from(mem::take(resp.headers_mut()));
 
             let stream = SendStream { inner: resp.bytes_stream() };
             let body = Body::from_stream(stream.map_err(axum::Error::new));
 
-            let mut builder = axum::http::Response::builder().status(status);
-            for (key, value) in headers.iter() {
-                builder = builder.header(key, value);
-            }
-
-            Ok(builder
-                .body(body)
-                .expect("failed to build response"))
+            Ok(builder.body(body).expect("failed to build response"))
         })
         .await
     }
-}
-
-#[worker::send]
-async fn fallback(uri: Uri, axum::extract::State(state): axum::extract::State<WorkerState>) -> impl IntoResponse {
-    state.fetch_asset(uri).await
 }
 
 #[event(fetch)]
@@ -203,9 +193,6 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
         env: env.clone(),
         signing_key,
     };
-    let mut service = router(state.clone())
-        .fallback(fallback)
-        .with_state::<()>(state)
-        .into_service::<WorkerBody>();
+    let mut service = router(state.clone()).with_state::<()>(state).into_service::<WorkerBody>();
     Ok(Service::call(&mut service, req).await?)
 }
