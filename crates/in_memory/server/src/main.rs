@@ -181,7 +181,11 @@ impl UserProvider for InMemoryServer {
     async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
         let mut users = self.users.write().await;
         if let Some(UserState { followers, .. }) = users.get_mut(username) {
-            followers.push(Follower { id: follower_id, inbox, event_id });
+            followers.push(Follower {
+                id: follower_id,
+                inbox,
+                event_id,
+            });
         }
     }
 
@@ -205,18 +209,13 @@ impl UserProvider for InMemoryServer {
 
     async fn get_followers_inbox(&self, username: &str) -> impl Stream<Item = String> + Send {
         let users = self.users.clone().read_owned().await;
-        let inboxes = users
-            .get(username)
-            .map(|user| {
-                let mut unique = std::collections::HashSet::new();
-                user.followers.iter().filter_map(|f| {
-                    if unique.insert(f.inbox.clone()) {
-                        Some(f.inbox.clone())
-                    } else {
-                        None
-                    }
-                }).collect::<Vec<_>>()
-            });
+        let inboxes = users.get(username).map(|user| {
+            let mut unique = std::collections::HashSet::new();
+            user.followers
+                .iter()
+                .filter_map(|f| if unique.insert(f.inbox.clone()) { Some(f.inbox.clone()) } else { None })
+                .collect::<Vec<_>>()
+        });
         stream::iter(inboxes.into_iter().flatten())
     }
 }
