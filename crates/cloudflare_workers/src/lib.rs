@@ -7,12 +7,28 @@ use chrono::Utc;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
 use futures::{Future, Stream};
+use futures::stream::TryStreamExt;
+use std::pin::Pin;
+use std::task::{Context as TaskContext, Poll};
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
-use serde_json;
 use tower_service::Service;
 use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, event};
+
+struct SendStream<S> {
+    inner: S,
+}
+
+unsafe impl<S> Send for SendStream<S> {}
+
+impl<S: Stream + Unpin> Stream for SendStream<S> {
+    type Item = S::Item;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.inner).poll_next(cx)
+    }
+}
 
 #[derive(Clone)]
 struct WorkerState {
@@ -156,7 +172,9 @@ impl HTTPClient for WorkerState {
 
             let status = resp.status();
             let headers = resp.headers().clone();
-            let bytes = resp.bytes().await?;
+
+            let stream = SendStream { inner: resp.bytes_stream() };
+            let body = Body::from_stream(stream.map_err(axum::Error::new));
 
             let mut builder = axum::http::Response::builder().status(status);
             for (key, value) in headers.iter() {
@@ -164,7 +182,7 @@ impl HTTPClient for WorkerState {
             }
 
             Ok(builder
-                .body(Body::from(bytes))
+                .body(body)
                 .expect("failed to build response"))
         })
         .await
