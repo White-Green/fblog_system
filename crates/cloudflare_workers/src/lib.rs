@@ -6,13 +6,30 @@ use bytes::Bytes;
 use chrono::Utc;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
+use futures::stream::TryStreamExt;
 use futures::{Future, Stream};
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
-use serde_json;
+use std::mem;
+use std::pin::Pin;
+use std::task::{Context as TaskContext, Poll};
 use tower_service::Service;
-use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, event};
+use worker::{Body as WorkerBody, Context, Env, HttpRequest, HttpResponse, console_log, event};
+
+struct SendStream<S> {
+    inner: S,
+}
+
+unsafe impl<S> Send for SendStream<S> {}
+
+impl<S: Stream + Unpin> Stream for SendStream<S> {
+    type Item = S::Item;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.inner).poll_next(cx)
+    }
+}
 
 #[derive(Clone)]
 struct WorkerState {
@@ -151,19 +168,20 @@ impl HTTPClient for WorkerState {
     type Error = reqwest::Error;
     async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
         let req = reqwest::Request::try_from(request)?;
-        let resp = reqwest::Client::new().execute(req).await?;
-        let resp: axum::http::Response<reqwest::Body> = resp.into();
-        let (parts, body) = resp.into_parts();
-        Ok(axum::http::Response::from_parts(
-            parts,
-            Body::from_stream(http_body_util::BodyDataStream::new(body)),
-        ))
-    }
-}
+        worker::send::SendFuture::new(async move {
+            let mut resp = reqwest::Client::new().execute(req).await?;
 
-#[worker::send]
-async fn fallback(uri: Uri, axum::extract::State(state): axum::extract::State<WorkerState>) -> impl IntoResponse {
-    state.fetch_asset(uri).await
+            let status = resp.status();
+            let mut builder = axum::http::Response::builder().status(status);
+            *builder.headers_mut().unwrap() = http::header::HeaderMap::from(mem::take(resp.headers_mut()));
+
+            let stream = SendStream { inner: resp.bytes_stream() };
+            let body = Body::from_stream(stream.map_err(axum::Error::new));
+
+            Ok(builder.body(body).expect("failed to build response"))
+        })
+        .await
+    }
 }
 
 #[event(fetch)]
@@ -175,9 +193,6 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
         env: env.clone(),
         signing_key,
     };
-    let mut service = router(state.clone())
-        .fallback(fallback)
-        .with_state::<()>(state)
-        .into_service::<WorkerBody>();
+    let mut service = router(state.clone()).with_state::<()>(state).into_service::<WorkerBody>();
     Ok(Service::call(&mut service, req).await?)
 }
