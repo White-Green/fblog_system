@@ -42,6 +42,7 @@ struct WorkerState {
     env: Env,
     signing_key: RSASHA2SigningKey,
     queue: worker::Queue,
+    db: worker::d1::D1Database,
 }
 
 impl WorkerState {
@@ -154,21 +155,118 @@ impl UserProvider for WorkerState {
         }
     }
 
-    async fn get_followers_html(&self, _username: &str) -> Option<Body> {
-        None
-    }
-    async fn get_followers_len(&self, _username: &str) -> usize {
-        0
-    }
-    async fn get_follower_ids_until(&self, _username: &str, _until: u64) -> (ArrayVec<String, 10>, u64) {
-        (ArrayVec::new(), 0)
-    }
-    async fn add_follower(&self, _username: &str, _follower_id: String, _inbox: String) {}
-    #[allow(refining_impl_trait)]
-    fn get_followers_inbox(&self, _username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send {
-        worker::send::SendFuture::new(async { futures::stream::empty() })
-    }
 }
+    #[worker::send]
+    async fn get_followers_html(&self, username: &str) -> Option<Body> {
+        let stmt = worker::query!(
+            &self.db,
+            "SELECT follower_id FROM followers WHERE username = ?1",
+            &username
+        ).ok()?;
+        let rows: Vec<Vec<String>> = stmt.raw().await.ok()?;
+        let followers = rows
+            .into_iter()
+            .filter_map(|mut r| r.pop())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Some(Body::from(followers))
+    }
+
+    #[worker::send]
+    async fn get_followers_len(&self, username: &str) -> usize {
+        let stmt = match worker::query!(
+            &self.db,
+            "SELECT COUNT(*) as cnt FROM followers WHERE username = ?1",
+            &username
+        ) {
+            Ok(s) => s,
+            Err(_) => return 0,
+        };
+        stmt.first::<u64>(Some("cnt"))
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(0) as usize
+    }
+
+    #[worker::send]
+    async fn get_follower_ids_until(
+        &self,
+        username: &str,
+        until: u64,
+    ) -> (ArrayVec<String, 10>, u64) {
+        let len = self.get_followers_len(username).await as u64;
+        let until = len.min(until);
+        let offset = until.saturating_sub(10);
+        let stmt = match worker::query!(
+            &self.db,
+            "SELECT follower_id FROM followers WHERE username = ?1 ORDER BY rowid LIMIT 10 OFFSET ?2",
+            &username,
+            &(offset as i64)
+        ) {
+            Ok(s) => s,
+            Err(_) => return (ArrayVec::new(), offset),
+        };
+        let rows: Vec<Vec<String>> = match stmt.raw().await {
+            Ok(r) => r,
+            Err(_) => return (ArrayVec::new(), offset),
+        };
+        let mut vec = ArrayVec::<String, 10>::new();
+        for mut row in rows {
+            if let Some(id) = row.pop() {
+                if vec.try_push(id).is_err() {
+                    break;
+                }
+            }
+        }
+        (vec, offset)
+    }
+
+    #[worker::send]
+    async fn add_follower(
+        &self,
+        username: &str,
+        follower_id: String,
+        inbox: String,
+        event_id: String,
+    ) {
+        if let Ok(stmt) = worker::query!(
+            &self.db,
+            "INSERT INTO followers (username, follower_id, inbox, event_id) VALUES (?1, ?2, ?3, ?4)",
+            &username,
+            &follower_id,
+            &inbox,
+            &event_id
+        ) {
+            let _ = stmt.run().await;
+        }
+    }
+
+    #[allow(refining_impl_trait)]
+    fn get_followers_inbox(
+        &self,
+        username: &str,
+    ) -> impl Future<Output = impl Stream<Item = String> + Send> + Send {
+        let username = username.to_owned();
+        let db = self.db.clone();
+        worker::send::SendFuture::new(async move {
+            let stmt = match worker::query!(
+                &db,
+                "SELECT DISTINCT inbox FROM followers WHERE username = ?1",
+                &username
+            ) {
+                Ok(s) => s,
+                Err(_) => return futures::stream::empty(),
+            };
+            match stmt.raw::<String>().await {
+                Ok(rows) => {
+                    let iter = rows.into_iter().filter_map(|mut r| r.pop());
+                    futures::stream::iter(iter)
+                }
+                Err(_) => futures::stream::empty(),
+            }
+        })
+    }
 
 impl Queue for WorkerState {
     async fn enqueue(&self, data: QueueData) {
@@ -217,10 +315,17 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
+    let db = env.d1("FOLLOWERS_DB")?;
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS followers (username TEXT, follower_id TEXT, inbox TEXT, event_id TEXT)",
+    )
+    .await
+    .ok();
     let state = WorkerState {
         env: env.clone(),
         signing_key,
         queue,
+        db,
     };
     Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
 }
@@ -231,10 +336,17 @@ async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Con
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
+    let db = env.d1("FOLLOWERS_DB")?;
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS followers (username TEXT, follower_id TEXT, inbox TEXT, event_id TEXT)",
+    )
+    .await
+    .ok();
     let state = WorkerState {
         env: env.clone(),
         signing_key,
         queue,
+        db,
     };
     for message in batch.messages()? {
         let data = message.body().clone();

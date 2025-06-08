@@ -22,10 +22,16 @@ use tokio::sync::RwLock as TokioRwLock;
 use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
 
+#[derive(Clone)]
+struct Follower {
+    id: String,
+    event_id: String,
+}
+
 struct UserState {
     info_html: String,
     info_ap: String,
-    followers: Vec<String>,
+    followers: Vec<Follower>,
     followers_inbox: Vec<String>,
 }
 
@@ -144,7 +150,9 @@ impl UserProvider for InMemoryServer {
 
     async fn get_followers_html(&self, username: &str) -> Option<Body> {
         let users = self.users.read().await;
-        users.get(username).map(|state| Body::from(state.followers.join(", ")))
+        users
+            .get(username)
+            .map(|state| Body::from(state.followers.iter().map(|f| f.id.as_str()).collect::<Vec<_>>().join(", ")))
     }
 
     async fn get_followers_len(&self, username: &str) -> usize {
@@ -152,26 +160,41 @@ impl UserProvider for InMemoryServer {
         users.get(username).map(|state| state.followers.len()).unwrap_or(0)
     }
 
-    async fn get_follower_ids_until(&self, username: &str, until: u64) -> (ArrayVec<String, 10>, u64) {
+    async fn get_follower_ids_until(
+        &self,
+        username: &str,
+        until: u64,
+    ) -> (ArrayVec<String, 10>, u64) {
         let map = self.users.read().await;
         match map.get(username) {
             Some(UserState { followers: list, .. }) => {
                 let until = list.len().min(until as usize);
-                let list = &list[..until];
-                let next_ts = list.len().saturating_sub(10);
-                (list[next_ts..].try_into().unwrap(), next_ts as u64)
+                let start = until.saturating_sub(10);
+                let mut ids = ArrayVec::<String, 10>::new();
+                for follower in &list[start..until] {
+                    if ids.try_push(follower.id.clone()).is_err() {
+                        break;
+                    }
+                }
+                (ids, start as u64)
             }
-            _ => (<&[String]>::try_into(&[]).unwrap(), 0),
+            _ => (ArrayVec::new(), 0),
         }
     }
 
-    async fn add_follower(&self, username: &str, follower_id: String, inbox: String) {
+    async fn add_follower(
+        &self,
+        username: &str,
+        follower_id: String,
+        inbox: String,
+        event_id: String,
+    ) {
         let mut users = self.users.write().await;
         if let Some(UserState {
             followers, followers_inbox, ..
         }) = users.get_mut(username)
         {
-            followers.push(follower_id);
+            followers.push(Follower { id: follower_id, event_id });
             if !followers_inbox.iter().any(|x| x == &inbox) {
                 followers_inbox.push(inbox);
             }
@@ -230,7 +253,9 @@ async fn main() {
                 users.insert(
                     username.to_owned(),
                     UserState {
-                        info_html: format!("<!DOCTYPE html><html><head></head><body><h1>{username}'s UserPage</h1></body></html>"),
+                        info_html: format!(
+                            "<!DOCTYPE html><html><head></head><body><h1>{username}'s UserPage</h1></body></html>"
+                        ),
                         info_ap,
                         followers: vec![],
                         followers_inbox: vec![],

@@ -298,7 +298,12 @@ where
                 return ProcessQueueResult::Finished;
             }
             state
-                .add_follower(&username, actor.clone(), user.shared_inbox.unwrap_or_else(|| user.inbox.clone()))
+                .add_follower(
+                    &username,
+                    actor.clone(),
+                    user.shared_inbox.unwrap_or_else(|| user.inbox.clone()),
+                    id.clone(),
+                )
                 .await;
             let follow_actor = serde_json::to_string(&actor).unwrap();
             let accept_actor = serde_json::to_string(&format!("{url}/users/{username}")).unwrap();
