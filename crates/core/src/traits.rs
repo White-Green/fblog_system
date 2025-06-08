@@ -59,7 +59,7 @@ pub trait UserProvider {
     fn get_followers_inbox(&self, username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum QueueData {
     Inbox {
         username: String,

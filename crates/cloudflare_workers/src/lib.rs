@@ -1,9 +1,10 @@
 use arrayvec::ArrayVec;
 use axum::body::Body;
-use axum::http::{Request, Uri};
+use axum::http::Request;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use chrono::Utc;
+use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
 use futures::stream::TryStreamExt;
@@ -20,7 +21,7 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
-use worker::{Context, Env, HttpRequest, HttpResponse, console_log, event};
+use worker::{Context, Env, HttpRequest, MessageExt, event};
 
 struct SendStream<S> {
     inner: S,
@@ -40,6 +41,7 @@ impl<S: Stream + Unpin> Stream for SendStream<S> {
 struct WorkerState {
     env: Env,
     signing_key: RSASHA2SigningKey,
+    queue: worker::Queue,
 }
 
 impl WorkerState {
@@ -170,7 +172,12 @@ impl UserProvider for WorkerState {
 
 impl Queue for WorkerState {
     async fn enqueue(&self, data: QueueData) {
-        worker::console_log!("enqueue: {:?}", data);
+        worker::send::SendFuture::new(async move {
+            if let Err(e) = self.queue.send(data).await {
+                worker::console_error!("failed to enqueue: {:?}", e);
+            }
+        })
+        .await
     }
 }
 
@@ -190,7 +197,7 @@ impl HTTPClient for WorkerState {
 
             Ok(builder.body(body).expect("failed to build response"))
         })
-            .await
+        .await
     }
 }
 
@@ -209,9 +216,32 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     console_error_panic_hook::set_once();
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
+    let queue = env.queue("JOB_QUEUE")?;
     let state = WorkerState {
         env: env.clone(),
         signing_key,
+        queue,
     };
     Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
+}
+
+#[event(queue)]
+async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Context) -> worker::Result<()> {
+    console_error_panic_hook::set_once();
+    let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
+    let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
+    let queue = env.queue("JOB_QUEUE")?;
+    let state = WorkerState {
+        env: env.clone(),
+        signing_key,
+        queue,
+    };
+    for message in batch.messages()? {
+        let data = message.body().clone();
+        match process_queue(&state, data).await {
+            ProcessQueueResult::Finished => message.ack(),
+            ProcessQueueResult::Retry => message.retry(),
+        }
+    }
+    Ok(())
 }
