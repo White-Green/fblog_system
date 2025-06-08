@@ -10,8 +10,15 @@ use rsa::sha2::{Digest, Sha256};
 use rsa::signature::Verifier;
 use serde::Deserialize;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyResult {
+    Verified,
+    CannotVerify,
+    Failed,
+}
+
 #[tracing::instrument(skip(state, body))]
-pub async fn verify_request<E>(state: &E, headers: &HeaderMap, method: &str, path: &str, body: &[u8]) -> bool
+pub async fn verify_request<E>(state: &E, headers: &HeaderMap, method: &str, path: &str, body: &[u8]) -> VerifyResult
 where
     E: HTTPClient,
 {
@@ -20,7 +27,7 @@ where
         .or_else(|| headers.get("signature"))
         .and_then(|v| v.to_str().ok())
     else {
-        return false;
+        return VerifyResult::CannotVerify;
     };
 
     let mut key_id = None;
@@ -40,29 +47,31 @@ where
             _ => {}
         }
     }
-    let Some(key_id) = key_id else { return false };
-    let Some(algorithm) = algorithm else { return false };
-    let Some(signed_headers) = signed_headers else { return false };
-    let Some(signature) = signature else { return false };
+    let Some(key_id) = key_id else { return VerifyResult::CannotVerify };
+    let Some(algorithm) = algorithm else { return VerifyResult::CannotVerify };
+    let Some(signed_headers) = signed_headers else {
+        return VerifyResult::CannotVerify;
+    };
+    let Some(signature) = signature else { return VerifyResult::CannotVerify };
 
     if algorithm != "rsa-sha256" {
-        return false;
+        return VerifyResult::CannotVerify;
     }
     if signed_headers != "(request-target) date host digest" {
-        return false;
+        return VerifyResult::CannotVerify;
     }
 
     let date = match headers.get(DATE).and_then(|v| v.to_str().ok()) {
         Some(v) => v,
-        None => return false,
+        None => return VerifyResult::CannotVerify,
     };
     let host = match headers.get(HOST).and_then(|v| v.to_str().ok()) {
         Some(v) => v,
-        None => return false,
+        None => return VerifyResult::CannotVerify,
     };
     let digest_header = match headers.get("digest").and_then(|v| v.to_str().ok()) {
         Some(v) => v,
-        None => return false,
+        None => return VerifyResult::CannotVerify,
     };
 
     let computed_digest = {
@@ -72,7 +81,8 @@ where
         base64::engine::general_purpose::STANDARD.encode(out)
     };
     if digest_header != format!("SHA-256={}", computed_digest) {
-        return false;
+        tracing::warn!("digest mismatch");
+        return VerifyResult::Failed;
     }
 
     let sign_target = format!(
@@ -100,39 +110,45 @@ where
         .body(Bytes::new())
     {
         Ok(req) => req,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     let response = match state.request(request).await {
         Ok(resp) => resp,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     if !response.status().is_success() {
-        return false;
+        return VerifyResult::CannotVerify;
     }
     let body = match http_body_util::BodyExt::collect(response.into_body()).await {
         Ok(b) => b,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     let actor: Actor = match serde_json::from_slice(&body.to_bytes()) {
         Ok(v) => v,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     let pem = match actor.key {
         Some(k) => k.pem,
-        None => return false,
+        None => return VerifyResult::CannotVerify,
     };
 
     let verifying_key = match RsaPublicKey::from_public_key_pem(&pem) {
         Ok(k) => VerifyingKey::<Sha256>::new(k),
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     let sig_bytes = match base64::engine::general_purpose::STANDARD.decode(signature.as_bytes()) {
         Ok(b) => b,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
     let signature = match Signature::try_from(sig_bytes.as_slice()) {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => return VerifyResult::CannotVerify,
     };
-    verifying_key.verify(sign_target.as_bytes(), &signature).is_ok()
+    if verifying_key.verify(sign_target.as_bytes(), &signature).is_ok() {
+        tracing::info!("signature verified");
+        VerifyResult::Verified
+    } else {
+        tracing::warn!("signature verification failed");
+        VerifyResult::Failed
+    }
 }

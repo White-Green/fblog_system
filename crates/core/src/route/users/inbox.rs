@@ -1,5 +1,5 @@
 use crate::traits::{HTTPClient, Queue, QueueData, UserProvider};
-use crate::verify::verify_request;
+use crate::verify::{VerifyResult, verify_request};
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::CONTENT_TYPE;
@@ -27,7 +27,13 @@ where
         tracing::info!("invalid content type");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let verified = verify_request(&state, &header, "POST", &format!("/users/{username}/inbox"), data.as_bytes()).await;
+    let verified = match verify_request(&state, &header, "POST", &format!("/users/{username}/inbox"), data.as_bytes()).await {
+        VerifyResult::Verified => true,
+        VerifyResult::CannotVerify => false,
+        VerifyResult::Failed => {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+    };
     let queue_data = if let Ok(inbox_data) = serde_json::from_str::<SpecializedInboxData>(&data) {
         tracing::info!("specialized inbox data: {inbox_data:?}");
         match inbox_data {
