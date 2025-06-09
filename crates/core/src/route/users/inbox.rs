@@ -10,7 +10,12 @@ use serde::Deserialize;
 use std::str::FromStr;
 
 #[tracing::instrument(skip(state))]
-pub async fn user_inbox_post<E>(header: HeaderMap, Path(username): Path<String>, State(state): State<E>, data: String) -> Response<Body>
+pub async fn user_inbox_post<E>(
+    header: HeaderMap,
+    Path(username): Path<String>,
+    State(state): State<E>,
+    body: Body,
+) -> Response<Body>
 where
     E: UserProvider + Queue + HTTPClient,
 {
@@ -27,7 +32,20 @@ where
         tracing::info!("invalid content type");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let verified = match verify_request(&state, &header, "POST", &format!("/users/{username}/inbox"), data.as_bytes()).await {
+    let (mut result, verify_body) =
+        verify_request(&state, &header, "POST", &format!("/users/{username}/inbox"), body).await;
+    let Ok((bytes, digest_ok)) = verify_body.collect_to_bytes().await else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    if result == VerifyResult::Verified && !digest_ok {
+        tracing::warn!("digest mismatch");
+        result = VerifyResult::Failed;
+    }
+    let data = match String::from_utf8(bytes.to_vec()) {
+        Ok(s) => s,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let verified = match result {
         VerifyResult::Verified => true,
         VerifyResult::CannotVerify => false,
         VerifyResult::Failed => {
