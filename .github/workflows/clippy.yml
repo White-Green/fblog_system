@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Enable corepack
         run: corepack enable
 
@@ -30,8 +31,15 @@ jobs:
         run: pnpm run build
         env:
           PUBLIC_KEY_FILE: test_config/public-key-for-test.pem
+
+      - name: Fix certificate permissions
+        run: |
+          sudo chown -R $(id -u):$(id -g) test_config/caddy-data
+          sudo chmod -R a+rX test_config/caddy-data
+
       - name: cargo clippy
         run: cargo clippy --workspace --tests -- -D warnings
+
       - name: Stop caddy
         if: always()
         run: docker compose -f test_config/compose.yml down

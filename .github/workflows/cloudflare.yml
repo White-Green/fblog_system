@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+
       - name: Build Cloudflare Workers frontend
         run: cargo build -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown
