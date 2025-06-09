@@ -11,7 +11,6 @@ where
     E: Env + ArticleProvider + UserProvider + HTTPClient + Queue + Send + Sync + Clone + 'static,
 {
     Router::<E>::new()
-        .route("/.well-known/host-meta", get(well_known::host_meta::get_host_meta::<E>))
         .route("/.well-known/webfinger", get(well_known::webfinger::get_webfinger::<E>))
         .route("/users/:username", get(users::user_get::<E>))
         .route("/users/:username/inbox", post(users::inbox::user_inbox_post::<E>))
