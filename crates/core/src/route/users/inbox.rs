@@ -1,5 +1,5 @@
 use crate::traits::{HTTPClient, Queue, QueueData, UserProvider};
-use crate::verify::{VerifyResult, verify_request};
+use crate::verify::{VerifiedRequest, verify_request};
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::CONTENT_TYPE;
@@ -32,25 +32,41 @@ where
         tracing::info!("invalid content type");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let (mut result, verify_body) =
-        verify_request(&state, &header, "POST", &format!("/users/{username}/inbox"), body).await;
-    let Ok((bytes, digest_ok)) = verify_body.collect_to_bytes().await else {
-        return StatusCode::BAD_REQUEST.into_response();
-    };
-    if result == VerifyResult::Verified && !digest_ok {
-        tracing::warn!("digest mismatch");
-        result = VerifyResult::Failed;
+    let mut req_builder = axum::http::Request::builder()
+        .method("POST")
+        .uri(format!("/users/{username}/inbox"));
+    for (name, value) in header.iter() {
+        if let Ok(v) = value.to_str() {
+            req_builder = req_builder.header(name, v);
+        }
     }
+    let request = match req_builder.body(body) {
+        Ok(r) => r,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let (verified, bytes) = match verify_request(&state, request).await {
+        VerifiedRequest::Verified(req) => {
+            let (bytes, digest_ok) = match req.into_body().collect_to_bytes().await {
+                Ok(res) => res,
+                Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+            };
+            if !digest_ok {
+                tracing::warn!("digest mismatch");
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            (true, bytes)
+        }
+        VerifiedRequest::CannotVerify(req) => {
+            let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            (false, collected.to_bytes())
+        }
+        VerifiedRequest::VerifyFailed => return StatusCode::BAD_REQUEST.into_response(),
+    };
     let data = match String::from_utf8(bytes.to_vec()) {
         Ok(s) => s,
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
-    };
-    let verified = match result {
-        VerifyResult::Verified => true,
-        VerifyResult::CannotVerify => false,
-        VerifyResult::Failed => {
-            return StatusCode::BAD_REQUEST.into_response();
-        }
     };
     let queue_data = if let Ok(inbox_data) = serde_json::from_str::<SpecializedInboxData>(&data) {
         tracing::info!("specialized inbox data: {inbox_data:?}");
