@@ -52,8 +52,8 @@ where
         }
     }
 
-    pub fn digest_ok(&self) -> Option<bool> {
-        if self.done { Some(self.digest_ok) } else { None }
+    pub fn digest_ok(&self) -> bool {
+        self.digest_ok
     }
 
     pub async fn collect_to_bytes(mut self) -> Result<(Bytes, bool), Box<dyn std::error::Error + Send + Sync>> {
