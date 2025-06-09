@@ -1,7 +1,7 @@
 use crate::traits::HTTPClient;
 use axum::http::Request;
 use base64::Engine;
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use http_body_util::{BodyExt, Limited};
 use rsa::pkcs1v15::{Signature, VerifyingKey};
 use rsa::pkcs8::DecodePublicKey;
@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 #[derive(Debug)]
 pub enum VerifiedRequest<B> {
-    Verified(Request<VerifyBody<B>>),
+    Verified(Request<VerifyBody<Limited<B>>>),
     CannotVerify(Request<Limited<B>>),
     VerifyFailed,
 }
@@ -21,7 +21,7 @@ const BODY_LIMIT: usize = 1024 * 64;
 
 #[derive(Debug)]
 pub struct VerifyBody<B> {
-    inner: Limited<B>,
+    inner: B,
     hasher: Option<Sha256>,
     expected_digest: Option<String>,
 }
@@ -31,24 +31,57 @@ where
     B: http_body::Body<Data = Bytes> + Unpin,
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    pub async fn collect_to_bytes(mut self) -> Result<(Bytes, bool), Box<dyn std::error::Error + Send + Sync>> {
-        let mut out = BytesMut::new();
-        while let Some(frame) = self.inner.frame().await {
-            let frame = frame?;
-            if let Some(data) = frame.data_ref() {
-                if let Some(ref mut hasher) = self.hasher {
-                    hasher.update(data);
-                }
-                out.extend_from_slice(data);
-            }
+    pub fn new(inner: B, digest: Option<String>) -> Self {
+        Self {
+            inner,
+            hasher: digest.as_ref().map(|_| Sha256::new()),
+            expected_digest: digest,
         }
-        let digest_ok = if let (Some(hasher), Some(expected)) = (self.hasher.take(), self.expected_digest.take()) {
+    }
+
+    fn verify_result(&mut self) -> bool {
+        if let (Some(hasher), Some(expected)) = (self.hasher.take(), self.expected_digest.take()) {
             let digest = base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
             format!("SHA-256={}", digest) == expected
         } else {
             true
-        };
-        Ok((out.freeze(), digest_ok))
+        }
+    }
+
+    pub async fn collect_to_bytes(mut self) -> Result<(Bytes, bool), Box<dyn std::error::Error + Send + Sync>> {
+        let collected = BodyExt::collect(&mut self).await.map_err(Into::into)?;
+        let ok = self.verify_result();
+        Ok((collected.to_bytes(), ok))
+    }
+}
+
+impl<B> http_body::Body for VerifyBody<B>
+where
+    B: http_body::Body<Data = Bytes> + Unpin,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    type Data = Bytes;
+    type Error = B::Error;
+
+    fn poll_frame(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>)
+        -> std::task::Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>>
+    {
+        match std::pin::Pin::new(&mut self.inner).poll_frame(cx) {
+            std::task::Poll::Ready(Some(Ok(mut frame))) => {
+                if let Some(data) = frame.data_ref() {
+                    if let Some(ref mut hasher) = self.hasher {
+                        hasher.update(data);
+                    }
+                }
+                std::task::Poll::Ready(Some(Ok(frame)))
+            }
+            std::task::Poll::Ready(None) => {
+                // compute digest when stream ends
+                VerifyBody::verify_result(&mut *self);
+                std::task::Poll::Ready(None)
+            }
+            other => other,
+        }
     }
 }
 
@@ -227,11 +260,8 @@ where
     };
     if verifying_key.verify(sign_target.as_bytes(), &signature).is_ok() {
         tracing::info!("signature verified");
-        let body = VerifyBody {
-            inner: Limited::new(body, BODY_LIMIT),
-            hasher: digest_header.as_ref().map(|_| Sha256::new()),
-            expected_digest: digest_header,
-        };
+        let limited = Limited::new(body, BODY_LIMIT);
+        let body = VerifyBody::new(limited, digest_header);
         VerifiedRequest::Verified(Request::from_parts(parts, body))
     } else {
         tracing::info!("signature verification failed");
