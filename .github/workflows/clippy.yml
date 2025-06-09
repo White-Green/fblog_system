@@ -27,6 +27,9 @@ jobs:
         with:
           components: clippy
 
+      - name: Setup test data
+        run: mv test_config/test_data/* .
+
       - name: Build site
         run: pnpm run build
         env:
