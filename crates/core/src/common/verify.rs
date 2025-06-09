@@ -3,7 +3,7 @@ use axum::body::Body;
 use axum::http::HeaderMap;
 use base64::Engine;
 use bytes::{Bytes, BytesMut};
-use http_body_util::BodyExt;
+use http_body_util::{BodyExt, Limited};
 use rsa::RsaPublicKey;
 use rsa::pkcs1v15::{Signature, VerifyingKey};
 use rsa::pkcs8::DecodePublicKey;
@@ -18,18 +18,20 @@ pub enum VerifyResult {
     Failed,
 }
 
+const BODY_LIMIT: usize = 1024 * 64;
+
 pub struct VerifyBody<B> {
-    inner: B,
+    inner: Limited<B>,
     hasher: Option<Sha256>,
     expected_digest: Option<String>,
-    digest_ok: bool,
 }
 
-impl<B> VerifyBody<B> {
-    pub async fn collect_to_bytes(mut self) -> Result<(Bytes, bool), B::Error>
-    where
-        B: http_body::Body<Data = Bytes> + Unpin,
-    {
+impl<B> VerifyBody<B>
+where
+    B: http_body::Body<Data = Bytes> + Unpin,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    pub async fn collect_to_bytes(mut self) -> Result<(Bytes, bool), Box<dyn std::error::Error + Send + Sync>> {
         let mut out = BytesMut::new();
         while let Some(frame) = self.inner.frame().await {
             let frame = frame?;
@@ -40,24 +42,18 @@ impl<B> VerifyBody<B> {
                 out.extend_from_slice(data);
             }
         }
-        if let (Some(hasher), Some(expected)) = (self.hasher.take(), self.expected_digest.take()) {
+        let digest_ok = if let (Some(hasher), Some(expected)) = (self.hasher.take(), self.expected_digest.take()) {
             let digest = base64::engine::general_purpose::STANDARD.encode(hasher.finalize());
-            self.digest_ok = format!("SHA-256={}", digest) == expected;
+            format!("SHA-256={}", digest) == expected
         } else {
-            self.digest_ok = true;
-        }
-        Ok((out.freeze(), self.digest_ok))
+            true
+        };
+        Ok((out.freeze(), digest_ok))
     }
 }
 
 #[tracing::instrument(skip(state, body))]
-pub async fn verify_request<E>(
-    state: &E,
-    headers: &HeaderMap,
-    method: &str,
-    path: &str,
-    body: Body,
-) -> (VerifyResult, VerifyBody<Body>)
+pub async fn verify_request<E>(state: &E, headers: &HeaderMap, method: &str, path: &str, body: Body) -> (VerifyResult, VerifyBody<Body>)
 where
     E: HTTPClient,
 {
@@ -70,10 +66,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     };
@@ -100,10 +95,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     };
@@ -112,10 +106,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     };
@@ -124,10 +117,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     };
@@ -136,10 +128,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     };
@@ -149,10 +140,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     }
@@ -176,10 +166,9 @@ where
                     return (
                         VerifyResult::CannotVerify,
                         VerifyBody {
-                            inner: body,
+                            inner: Limited::new(body, BODY_LIMIT),
                             hasher: None,
                             expected_digest: None,
-                            digest_ok: false,
                         },
                     );
                 }
@@ -191,10 +180,9 @@ where
                     return (
                         VerifyResult::CannotVerify,
                         VerifyBody {
-                            inner: body,
+                            inner: Limited::new(body, BODY_LIMIT),
                             hasher: None,
                             expected_digest: None,
-                            digest_ok: false,
                         },
                     );
                 }
@@ -227,10 +215,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -242,10 +229,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -255,10 +241,9 @@ where
         return (
             VerifyResult::CannotVerify,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         );
     }
@@ -269,10 +254,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -284,10 +268,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -299,10 +282,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -315,10 +297,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -330,10 +311,9 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
@@ -345,26 +325,21 @@ where
             return (
                 VerifyResult::CannotVerify,
                 VerifyBody {
-                    inner: body,
+                    inner: Limited::new(body, BODY_LIMIT),
                     hasher: None,
                     expected_digest: None,
-                    digest_ok: false,
                 },
             );
         }
     };
-    if verifying_key
-        .verify(sign_target.as_bytes(), &signature)
-        .is_ok()
-    {
+    if verifying_key.verify(sign_target.as_bytes(), &signature).is_ok() {
         tracing::info!("signature verified");
         (
             VerifyResult::Verified,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: digest_header.as_ref().map(|_| Sha256::new()),
                 expected_digest: digest_header,
-                digest_ok: false,
             },
         )
     } else {
@@ -372,10 +347,9 @@ where
         (
             VerifyResult::Failed,
             VerifyBody {
-                inner: body,
+                inner: Limited::new(body, BODY_LIMIT),
                 hasher: None,
                 expected_digest: None,
-                digest_ok: false,
             },
         )
     }
