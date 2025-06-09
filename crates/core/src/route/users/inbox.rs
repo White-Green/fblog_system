@@ -10,12 +10,7 @@ use serde::Deserialize;
 use std::str::FromStr;
 
 #[tracing::instrument(skip(state))]
-pub async fn user_inbox_post<E>(
-    header: HeaderMap,
-    Path(username): Path<String>,
-    State(state): State<E>,
-    body: Body,
-) -> Response<Body>
+pub async fn user_inbox_post<E>(header: HeaderMap, Path(username): Path<String>, State(state): State<E>, body: Body) -> Response<Body>
 where
     E: UserProvider + Queue + HTTPClient,
 {
@@ -32,9 +27,7 @@ where
         tracing::info!("invalid content type");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let mut req_builder = axum::http::Request::builder()
-        .method("POST")
-        .uri(format!("/users/{username}/inbox"));
+    let mut req_builder = axum::http::Request::builder().method("POST").uri(format!("/users/{username}/inbox"));
     for (name, value) in header.iter() {
         if let Ok(v) = value.to_str() {
             req_builder = req_builder.header(name, v);
@@ -45,7 +38,7 @@ where
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
     };
     let (verified, bytes) = match verify_request(&state, request).await {
-        VerifiedRequest::Verified(req) => {
+        VerifiedRequest::VerifiedDigest(req) => {
             let (bytes, digest_ok) = match req.into_body().collect_to_bytes().await {
                 Ok(res) => res,
                 Err(_) => return StatusCode::BAD_REQUEST.into_response(),
@@ -55,6 +48,12 @@ where
                 return StatusCode::BAD_REQUEST.into_response();
             }
             (true, bytes)
+        }
+        VerifiedRequest::Verified(req) => {
+            let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            (true, collected.to_bytes())
         }
         VerifiedRequest::CannotVerify(req) => {
             let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
