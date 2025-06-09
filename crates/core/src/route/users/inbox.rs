@@ -1,4 +1,5 @@
-use crate::traits::{Queue, QueueData, UserProvider};
+use crate::traits::{HTTPClient, Queue, QueueData, UserProvider};
+use crate::verify::{VerifiedRequest, verify_request};
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::CONTENT_TYPE;
@@ -9,9 +10,9 @@ use serde::Deserialize;
 use std::str::FromStr;
 
 #[tracing::instrument(skip(state))]
-pub async fn user_inbox_post<E>(header: HeaderMap, Path(username): Path<String>, State(state): State<E>, data: String) -> Response<Body>
+pub async fn user_inbox_post<E>(header: HeaderMap, Path(username): Path<String>, State(state): State<E>, body: Body) -> Response<Body>
 where
-    E: UserProvider + Queue,
+    E: UserProvider + Queue + HTTPClient,
 {
     if !state.exists_user(&username).await {
         tracing::info!("user is not found");
@@ -26,10 +27,56 @@ where
         tracing::info!("invalid content type");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let queue_data = if let Ok(data) = serde_json::from_str::<SpecializedInboxData>(&data) {
-        tracing::info!("specialized inbox data: {data:?}");
-        match data {
-            SpecializedInboxData::Follow { actor, object, id } => QueueData::Follow { username, actor, object, id },
+    let mut req_builder = axum::http::Request::builder().method("POST").uri(format!("/users/{username}/inbox"));
+    for (name, value) in header.iter() {
+        if let Ok(v) = value.to_str() {
+            req_builder = req_builder.header(name, v);
+        }
+    }
+    let request = match req_builder.body(body) {
+        Ok(r) => r,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let (verified, bytes) = match verify_request(&state, request).await {
+        VerifiedRequest::VerifiedDigest(req) => {
+            let (bytes, digest_ok) = match req.into_body().collect_to_bytes().await {
+                Ok(res) => res,
+                Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+            };
+            if !digest_ok {
+                tracing::warn!("digest mismatch");
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            (true, bytes)
+        }
+        VerifiedRequest::Verified(req) => {
+            let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            (true, collected.to_bytes())
+        }
+        VerifiedRequest::CannotVerify(req) => {
+            let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            (false, collected.to_bytes())
+        }
+        VerifiedRequest::VerifyFailed => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let data = match String::from_utf8(bytes.to_vec()) {
+        Ok(s) => s,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let queue_data = if let Ok(inbox_data) = serde_json::from_str::<SpecializedInboxData>(&data) {
+        tracing::info!("specialized inbox data: {inbox_data:?}");
+        match inbox_data {
+            SpecializedInboxData::Follow { actor, object, id } => QueueData::Follow {
+                username,
+                actor,
+                object,
+                id,
+                verified,
+            },
             SpecializedInboxData::Undo { object } => match object {
                 UndoObject::Follow { id, actor, object } => QueueData::Unfollow {
                     username,
@@ -39,12 +86,14 @@ where
                 },
             },
         }
-    } else if let Ok(data) = serde_json::from_str::<InboxData>(&data) {
-        tracing::info!("inbox data: {data:?}");
+    } else if let Ok(inbox) = serde_json::from_str::<InboxData>(&data) {
+        tracing::info!("inbox data: {inbox:?}");
         QueueData::Inbox {
             username,
-            ty: data.ty,
-            id: data.id,
+            ty: inbox.ty,
+            id: inbox.id.clone(),
+            body: if verified { Some(data.clone()) } else { None },
+            verified,
         }
     } else {
         tracing::error!("failed to parse inbox data: {data}");
