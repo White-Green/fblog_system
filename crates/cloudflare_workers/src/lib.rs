@@ -331,7 +331,7 @@ impl HTTPClient for WorkerState {
 
             let status = resp.status();
             let mut builder = axum::http::Response::builder().status(status);
-            *builder.headers_mut().unwrap() = http::header::HeaderMap::from(mem::take(resp.headers_mut()));
+            *builder.headers_mut().unwrap() = mem::take(resp.headers_mut());
 
             let stream = SendStream { inner: resp.bytes_stream() };
             let body = Body::from_stream(stream.map_err(axum::Error::new));

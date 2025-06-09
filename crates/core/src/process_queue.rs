@@ -34,8 +34,8 @@ where
     tracing::info!("process queue: {:?}", data);
     match data {
         QueueData::Inbox {
-            username,
-            ty,
+            username: _,
+            ty: _,
             id,
             body,
             verified,
@@ -62,11 +62,6 @@ where
                     tracing::info!("comment_data_raw: {}", String::from_utf8_lossy(&comment_data_raw));
                     state.add_comment_raw(comment_data_raw).await;
                     return ProcessQueueResult::Finished;
-
-                    #[derive(Debug, Deserialize)]
-                    struct Comment {
-                        id: String,
-                    }
                 }
                 ResponseBody::Like { id } => {
                     let Ok(comment_data_raw) = get_ap_data_raw(&id, state).await else {
@@ -325,6 +320,17 @@ where
                     return ProcessQueueResult::Finished;
                 }
             }
+            #[derive(Debug, Deserialize)]
+            struct Person {
+                #[allow(dead_code)]
+                #[serde(rename = "id")]
+                _id: String,
+                #[serde(rename = "type")]
+                ty: String,
+                inbox: String,
+                #[serde(rename = "sharedInbox")]
+                shared_inbox: Option<String>,
+            }
             let Ok(user): Result<Person, _> = get_ap_data(&actor, state).await else {
                 return ProcessQueueResult::Finished;
             };
@@ -396,16 +402,6 @@ where
                 tracing::warn!("response: {:?}", String::from_utf8_lossy(&response));
             }
             return ProcessQueueResult::Finished;
-
-            #[derive(Debug, Deserialize)]
-            struct Person {
-                id: String,
-                #[serde(rename = "type")]
-                ty: String,
-                inbox: String,
-                #[serde(rename = "sharedInbox")]
-                shared_inbox: Option<String>,
-            }
         }
         QueueData::Unfollow { username, id, actor, object } => {
             state.remove_follower(&username, id).await;

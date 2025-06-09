@@ -8,8 +8,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Start caddy
+        run: docker compose -f test_config/compose.yml up -d caddy
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
+      - name: Build site
+        run: pnpm run build
+        env:
+          PUBLIC_KEY_FILE: test_config/public-key-for-test.pem
       - name: cargo clippy
         run: cargo clippy --workspace --tests -- -D warnings
+      - name: Stop caddy
+        if: always()
+        run: docker compose -f test_config/compose.yml down
