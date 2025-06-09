@@ -26,8 +26,8 @@ jobs:
       - name: Start caddy
         run: docker compose -f test_config/compose.yml up -d caddy
 
-      - name: Wait for caddy
-        run: sleep 10
+      - name: Setup test data
+        run: mv test_config/test_data/* .
 
       - name: Fix certificate permissions
         run: |
