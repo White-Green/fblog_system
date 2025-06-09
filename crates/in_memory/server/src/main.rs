@@ -3,10 +3,10 @@ use axum::Json;
 use axum::body::Body;
 use axum::extract::{Path, Query};
 use axum::http::{Request, Response, Uri};
-use axum::routing::{delete, get, post, put};
+use axum::routing::{delete, post, put};
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
+use fblog_system_core::process_queue::process_queue;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::{ArticleComment, ArticleNewComment, ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
 use futures::{Stream, stream};
@@ -118,16 +118,17 @@ impl ArticleProvider for InMemoryServer {
         comments_raw.push(data);
     }
 
+    #[allow(refining_impl_trait)]
     async fn get_comments_raw(&self) -> impl Stream<Item = Vec<u8>> + Send {
         let comments_raw = self.comments_raw.read().await;
         stream::iter(Vec::clone(&comments_raw).into_iter())
     }
 
-    async fn add_comment(&self, slug: &str, comment: ArticleNewComment) {
+    async fn add_comment(&self, _slug: &str, _comment: ArticleNewComment) {
         todo!()
     }
 
-    async fn get_public_comments_until(&self, slug: &str, until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
+    async fn get_public_comments_until(&self, _slug: &str, _until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
         todo!()
     }
 }
@@ -207,6 +208,7 @@ impl UserProvider for InMemoryServer {
         }
     }
 
+    #[allow(refining_impl_trait)]
     async fn get_followers_inbox(&self, username: &str) -> impl Stream<Item = String> + Send {
         let users = self.users.clone().read_owned().await;
         let inboxes = users.get(username).map(|user| {

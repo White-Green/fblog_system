@@ -12,7 +12,7 @@ mod sharkey;
 
 pub struct DockerContainers {
     client: Client,
-    process: Child,
+    _process: Child,
 }
 
 impl DockerContainers {
@@ -26,7 +26,7 @@ impl DockerContainers {
             .stdin(std::process::Stdio::null())
             .spawn()
             .unwrap();
-        Self { client, process }
+        Self { client, _process: process }
     }
 
     pub fn misskey_client(&self) -> MisskeyClient {

@@ -76,7 +76,7 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>> {
         match std::pin::Pin::new(&mut self.inner).poll_frame(cx) {
-            std::task::Poll::Ready(Some(Ok(mut frame))) => {
+            std::task::Poll::Ready(Some(Ok(frame))) => {
                 if let Some(data) = frame.data_ref() {
                     self.hasher.update(data);
                 }
@@ -99,7 +99,7 @@ where
     B: http_body::Body<Data = Bytes> + Unpin,
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    let (mut parts, body) = req.into_parts();
+    let (parts, body) = req.into_parts();
     let method = parts.method.clone();
     let path = parts.uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(parts.uri.path());
     let headers = &parts.headers;

@@ -2,11 +2,10 @@ use crate::common::headers::{AP_RESPONSE_MIME, AcceptMime, AcceptMimeSet, Header
 use crate::json_format;
 use crate::traits::{ArticleProvider, Env};
 use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use serde::Deserialize;
 
 #[tracing::instrument(skip(state))]
 pub async fn article_create_events_get<E>(header: HeaderMap, Path(slug): Path<String>, State(state): State<E>) -> Response<Body>
