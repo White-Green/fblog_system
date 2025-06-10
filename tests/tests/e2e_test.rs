@@ -79,6 +79,38 @@ fn main() {
             async { assert_eq!(dbg!(mastodon.fetch_timeline().await.unwrap()).len(), 2) },
         );
 
+        tokio::try_join!(
+            sharkey.renote(sharkey_note["object"]["id"].as_str().unwrap()),
+            misskey.renote(misskey_note["object"]["id"].as_str().unwrap()),
+            mastodon.renote(mastodon_note["id"].as_str().unwrap()),
+        )
+        .unwrap();
+
+        tokio::try_join!(
+            sharkey.quote_renote(sharkey_note["object"]["id"].as_str().unwrap(), "quote"),
+            misskey.quote_renote(misskey_note["object"]["id"].as_str().unwrap(), "quote"),
+            mastodon.quote_renote(mastodon_note["id"].as_str().unwrap(), "quote"),
+        )
+        .unwrap();
+
+        tokio::try_join!(
+            sharkey.reply(sharkey_note["object"]["id"].as_str().unwrap(), "reply"),
+            misskey.reply(misskey_note["object"]["id"].as_str().unwrap(), "reply"),
+            mastodon.reply(mastodon_note["id"].as_str().unwrap(), "reply"),
+        )
+        .unwrap();
+
+        wait_for(async || {
+            in_memory
+                .get_article_comments("first-post")
+                .await["comments"]
+                .as_array()
+                .unwrap()
+                .len()
+                >= 9
+        })
+        .await;
+
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {
                 slug: "markdown-style-guide".to_owned(),
@@ -86,9 +118,9 @@ fn main() {
             .await;
 
         tokio::join!(
-            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 3),
-            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 3),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 3),
+            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 6),
+            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 6),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 6),
         );
 
         let mut new_article_ap = serde_json::from_str::<serde_json::Value>(include_str!("../../dist/raw__/articles/ap/markdown-style-guide.json")).unwrap();
@@ -120,9 +152,9 @@ fn main() {
             .await;
 
         tokio::join!(
-            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 2),
-            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 2),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 2),
+            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 5),
+            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 5),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 5),
         );
 
         tokio::try_join!(
@@ -141,9 +173,9 @@ fn main() {
         tokio::time::sleep(Duration::from_secs(10)).await;
 
         tokio::join!(
-            async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 2) },
-            async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 2) },
-            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 5) },
+            async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 5) },
+            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 5) },
         );
     });
 }

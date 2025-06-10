@@ -1,5 +1,6 @@
 use fblog_system_core::traits::QueueData;
 use reqwest::Client;
+use serde_json::Value;
 use std::path::Path;
 use std::process::Child;
 use std::time::Duration;
@@ -57,6 +58,18 @@ impl InMemoryBlog {
 
     pub async fn delete_article(&self, slug: &str) {
         self.client.delete(format!("http://localhost:8787/articles/{slug}")).send().await.unwrap();
+    }
+
+    pub async fn get_article_comments(&self, slug: &str) -> serde_json::Value {
+        self.client
+            .get(format!("http://localhost:8787/articles/{slug}?data=comments"))
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .unwrap()
+            .json::<serde_json::Value>()
+            .await
+            .unwrap()
     }
 }
 

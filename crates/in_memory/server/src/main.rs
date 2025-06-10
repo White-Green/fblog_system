@@ -128,8 +128,20 @@ impl ArticleProvider for InMemoryServer {
         todo!()
     }
 
-    async fn get_public_comments_until(&self, _slug: &str, _until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
-        todo!()
+    async fn get_public_comments_until(&self, _slug: &str, until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
+        let comments_raw = self.comments_raw.read().await;
+        let until = (until as usize).min(comments_raw.len());
+        let start = until.saturating_sub(10);
+        let mut comments = ArrayVec::<ArticleComment, 10>::new();
+        for raw in &comments_raw[start..until] {
+            let content = String::from_utf8_lossy(raw).to_string();
+            let _ = comments.try_push(ArticleComment {
+                author_name: "unknown".to_owned(),
+                created_at: None,
+                content,
+            });
+        }
+        (comments, start as u64)
     }
 }
 
