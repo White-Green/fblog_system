@@ -162,6 +162,8 @@ fn main() {
         )
         .unwrap();
 
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
+
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {
                 slug: "second-post".to_owned(),
