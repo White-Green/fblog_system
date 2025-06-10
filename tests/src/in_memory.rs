@@ -60,14 +60,25 @@ impl InMemoryBlog {
         self.client.delete(format!("http://localhost:8787/articles/{slug}")).send().await.unwrap();
     }
 
-    pub async fn get_article_comments(&self, slug: &str) -> serde_json::Value {
+    pub async fn get_comments_raw(&self) -> serde_json::Value {
         self.client
-            .get(format!("http://localhost:8787/articles/{slug}?data=comments"))
+            .get("http://localhost:8787/comments_raw")
             .header("Accept", "application/json")
             .send()
             .await
             .unwrap()
             .json::<serde_json::Value>()
+            .await
+            .unwrap()
+    }
+
+    pub async fn job_queue_len(&self) -> usize {
+        self.client
+            .get("http://localhost:8787/job_queue_len")
+            .send()
+            .await
+            .unwrap()
+            .json::<usize>()
             .await
             .unwrap()
     }

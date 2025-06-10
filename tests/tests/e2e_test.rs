@@ -100,22 +100,15 @@ fn main() {
         )
         .unwrap();
 
-        wait_for(async || {
-            in_memory
-                .get_article_comments("first-post")
-                .await["comments"]
-                .as_array()
-                .unwrap()
-                .len()
-                >= 9
-        })
-        .await;
+        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() >= 9).await;
 
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {
                 slug: "markdown-style-guide".to_owned(),
             })
             .await;
+
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
 
         tokio::join!(
             wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 6),
@@ -135,6 +128,8 @@ fn main() {
             })
             .await;
 
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
+
         tokio::time::sleep(Duration::from_secs(10)).await;
 
         tokio::join!(
@@ -150,6 +145,8 @@ fn main() {
                 author: "default".to_owned(),
             })
             .await;
+
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
 
         tokio::join!(
             wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 5),
@@ -169,6 +166,8 @@ fn main() {
                 slug: "second-post".to_owned(),
             })
             .await;
+
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
 
         tokio::time::sleep(Duration::from_secs(10)).await;
 
