@@ -101,6 +101,7 @@ fn main() {
         .unwrap();
 
         wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() >= 9).await;
+        assert_eq!(in_memory.get_comments_raw().await.as_array().unwrap().len(), 9);
 
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {
