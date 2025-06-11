@@ -100,8 +100,15 @@ fn main() {
         )
         .unwrap();
 
-        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() >= 6).await;
-        assert_eq!(in_memory.get_comments_raw().await.as_array().unwrap().len(), 6);
+        tokio::try_join!(
+            sharkey.react(sharkey_note["object"]["id"].as_str().unwrap(), "like"),
+            misskey.react(misskey_note["object"]["id"].as_str().unwrap(), "like"),
+            mastodon.react(mastodon_note["id"].as_str().unwrap()),
+        )
+        .unwrap();
+
+        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() >= 9).await;
+        assert_eq!(in_memory.get_comments_raw().await.as_array().unwrap().len(), 9);
 
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {

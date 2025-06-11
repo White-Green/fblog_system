@@ -193,4 +193,23 @@ impl SharkeyClient<'_> {
             Err(format!("{response_dump}\n{:#?}", body).into())
         }
     }
+
+    pub async fn react(&self, note_id: &str, reaction: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/reactions/create", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "noteId": note_id, "reaction": reaction})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        let body = response.json().await.unwrap();
+        if succeed {
+            Ok(body)
+        } else {
+            Err(format!("{response_dump}\n{:#?}", body).into())
+        }
+    }
 }
