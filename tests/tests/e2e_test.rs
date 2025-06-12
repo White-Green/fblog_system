@@ -101,8 +101,8 @@ fn main() {
         .unwrap();
 
         tokio::try_join!(
-            sharkey.react(sharkey_note["object"]["id"].as_str().unwrap(), "like"),
-            misskey.react(misskey_note["object"]["id"].as_str().unwrap(), "like"),
+            sharkey.react(sharkey_note["object"]["id"].as_str().unwrap(), "👍"),
+            misskey.react(misskey_note["object"]["id"].as_str().unwrap(), "👍"),
             mastodon.react(mastodon_note["id"].as_str().unwrap()),
         )
         .unwrap();
