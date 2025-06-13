@@ -74,9 +74,9 @@ fn main() {
         .unwrap();
 
         tokio::join!(
-            async { assert_eq!(dbg!(sharkey.fetch_timeline().await.unwrap()).len(), 2) },
-            async { assert_eq!(dbg!(misskey.fetch_timeline().await.unwrap()).len(), 2) },
-            async { assert_eq!(dbg!(mastodon.fetch_timeline().await.unwrap()).len(), 2) },
+            async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 2) },
         );
 
         tokio::try_join!(
@@ -106,8 +106,7 @@ fn main() {
             mastodon.react(mastodon_note["id"].as_str().unwrap()),
         )
         .unwrap();
-
-        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() >= 6).await;
+        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() == 6).await;
         assert_eq!(in_memory.get_comments_raw().await.as_array().unwrap().len(), 6);
 
         in_memory
@@ -119,9 +118,10 @@ fn main() {
         wait_for(async || in_memory.job_queue_len().await == 0).await;
 
         tokio::join!(
-            wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 6),
-            wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 6),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 6),
+            wait_for(async || dbg!(sharkey.fetch_timeline().await.unwrap().len()) == 6),
+            wait_for(async || dbg!(misskey.fetch_timeline().await.unwrap().len()) == 6),
+            // mastodonはrenoteをTLに表示しないらしく、ノート数が1つ少なくなる
+            wait_for(async || dbg!(mastodon.fetch_timeline().await.unwrap().len()) == 5),
         );
 
         let mut new_article_ap = serde_json::from_str::<serde_json::Value>(include_str!("../../dist/raw__/articles/ap/markdown-style-guide.json")).unwrap();
@@ -138,12 +138,11 @@ fn main() {
 
         wait_for(async || in_memory.job_queue_len().await == 0).await;
 
-        tokio::time::sleep(Duration::from_secs(10)).await;
-
         tokio::join!(
-            async { sharkey.fetch_timeline().await.unwrap().iter().any(|note| note["text"] == "Updated content") },
-            async { misskey.fetch_timeline().await.unwrap().iter().any(|note| note["text"] == "Updated content") },
-            async { mastodon.fetch_timeline().await.unwrap().iter().any(|note| note["content"] == "Updated content") },
+            wait_for(async || sharkey.fetch_timeline().await.unwrap().iter().any(|note| note["text"] == "Updated content")),
+            // MisskeyはノートのUpdateを処理しないらしい "MUST"な仕様の実装をサボるな
+            // wait_for(async || misskey.fetch_timeline().await.unwrap().iter().any(|note| note["text"] == "Updated content")),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().iter().any(|note| note["content"] == "Updated content")),
         );
 
         in_memory.delete_article("markdown-style-guide").await;
@@ -159,7 +158,7 @@ fn main() {
         tokio::join!(
             wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 5),
             wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 5),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 5),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 4),
         );
 
         tokio::try_join!(
@@ -184,7 +183,8 @@ fn main() {
         tokio::join!(
             async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 5) },
             async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 5) },
-            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 5) },
+            // MastodonはUnfollowしたユーザのノートがタイムラインからちゃんと消えるらしいので少なくなる
+            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 2) },
         );
     });
 }

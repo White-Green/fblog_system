@@ -194,7 +194,7 @@ impl MisskeyClient<'_> {
         }
     }
 
-    pub async fn react(&self, note_id: &str, reaction: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+    pub async fn react(&self, note_id: &str, reaction: &str) -> Result<(), Box<dyn Error>> {
         let response = self
             .client
             .post(format!("{}/api/notes/reactions/create", self.base_url))
@@ -204,12 +204,10 @@ impl MisskeyClient<'_> {
             .await
             .unwrap();
         let succeed = response.status().is_success();
-        let response_dump = format!("{response:#?}");
-        let body = response.json().await.unwrap();
         if succeed {
-            Ok(body)
+            Ok(())
         } else {
-            Err(format!("{response_dump}\n{:#?}", body).into())
+            Err(format!("{response:?}").into())
         }
     }
 }

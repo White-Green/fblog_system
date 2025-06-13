@@ -361,6 +361,7 @@ async fn main() {
                 let pending = state.pending_jobs.clone();
                 async move || {
                     let len = pending.load(std::sync::atomic::Ordering::SeqCst);
+                    tracing::info!("pending jobs: {}", len);
                     Json(len)
                 }
             }),
@@ -372,6 +373,7 @@ async fn main() {
                 async move || {
                     let comments = comments.read().await;
                     let body: Vec<String> = comments.iter().map(|c| String::from_utf8_lossy(c).to_string()).collect();
+                    tracing::info!("comments: {}", body.len());
                     Json(body)
                 }
             }),

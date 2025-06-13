@@ -161,7 +161,7 @@ impl MastodonClient<'_> {
     pub async fn fetch_timeline(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error>> {
         let response = self
             .client
-            .get(format!("{}/api/v1/timelines/public", self.base_url))
+            .get(format!("{}/api/v1/timelines/home", self.base_url))
             .bearer_auth(self.token.as_ref().unwrap())
             .header(ACCEPT, "application/json")
             .send()
