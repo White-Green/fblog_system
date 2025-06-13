@@ -48,6 +48,7 @@ struct InMemoryServer {
     comments_raw: Arc<TokioRwLock<Vec<Vec<u8>>>>,
     users: Arc<TokioRwLock<HashMap<String, UserState>>>,
     queue: tokio::sync::mpsc::UnboundedSender<QueueData>,
+    pending_jobs: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     client: reqwest::Client,
     base_url: String,
     key: SigningKey<rsa::sha2::Sha256>,
@@ -70,6 +71,7 @@ impl InMemoryServer {
             comments_raw: Arc::new(TokioRwLock::new(Vec::new())),
             users: Arc::new(TokioRwLock::new(HashMap::new())),
             queue,
+            pending_jobs: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             client: client_builder.build().unwrap(),
             base_url: "https://blog.test".to_string(),
             key,
@@ -128,8 +130,20 @@ impl ArticleProvider for InMemoryServer {
         todo!()
     }
 
-    async fn get_public_comments_until(&self, _slug: &str, _until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
-        todo!()
+    async fn get_public_comments_until(&self, _slug: &str, until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
+        let comments_raw = self.comments_raw.read().await;
+        let until = (until as usize).min(comments_raw.len());
+        let start = until.saturating_sub(10);
+        let mut comments = ArrayVec::<ArticleComment, 10>::new();
+        for raw in &comments_raw[start..until] {
+            let content = String::from_utf8_lossy(raw).to_string();
+            let _ = comments.try_push(ArticleComment {
+                author_name: "unknown".to_owned(),
+                created_at: None,
+                content,
+            });
+        }
+        (comments, start as u64)
     }
 }
 
@@ -224,6 +238,7 @@ impl UserProvider for InMemoryServer {
 
 impl Queue for InMemoryServer {
     async fn enqueue(&self, data: QueueData) {
+        self.pending_jobs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.queue.send(data).unwrap();
     }
 }
@@ -307,9 +322,13 @@ async fn main() {
     let app = router(state.clone())
         .route(
             "/job_queue",
-            post(move |Json(queue_data)| {
-                sender.send(queue_data).unwrap();
-                future::ready(())
+            post({
+                let pending = state.pending_jobs.clone();
+                move |Json(queue_data)| {
+                    pending.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    sender.send(queue_data).unwrap();
+                    future::ready(())
+                }
             }),
         )
         .route(
@@ -333,6 +352,29 @@ async fn main() {
                 async move |Path(slug): Path<String>| {
                     let mut articles = state.articles.write().await;
                     articles.remove(&slug);
+                }
+            }),
+        )
+        .route(
+            "/job_queue_len",
+            axum::routing::get({
+                let pending = state.pending_jobs.clone();
+                async move || {
+                    let len = pending.load(std::sync::atomic::Ordering::SeqCst);
+                    tracing::info!("pending jobs: {}", len);
+                    Json(len)
+                }
+            }),
+        )
+        .route(
+            "/comments_raw",
+            axum::routing::get({
+                let comments = state.comments_raw.clone();
+                async move || {
+                    let comments = comments.read().await;
+                    let body: Vec<String> = comments.iter().map(|c| String::from_utf8_lossy(c).to_string()).collect();
+                    tracing::info!("comments: {}", body.len());
+                    Json(body)
                 }
             }),
         )
@@ -376,6 +418,7 @@ async fn main() {
         loop {
             let data = receiver.recv().await.unwrap();
             process_queue(&state, data).await;
+            state.pending_jobs.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
         }
     });
 }

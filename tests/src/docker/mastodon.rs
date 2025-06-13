@@ -161,7 +161,85 @@ impl MastodonClient<'_> {
     pub async fn fetch_timeline(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error>> {
         let response = self
             .client
-            .get(format!("{}/api/v1/timelines/public", self.base_url))
+            .get(format!("{}/api/v1/timelines/home", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(response.json().await.unwrap())
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
+    pub async fn renote(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/statuses/{note_id}/reblog", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(response.json().await.unwrap())
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
+    pub async fn quote_renote(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/statuses", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .json(&serde_json::json!({"status": text, "quote_id": note_id}))
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(response.json().await.unwrap())
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
+    pub async fn reply(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/statuses", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .json(&serde_json::json!({"status": text, "in_reply_to_id": note_id}))
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(response.json().await.unwrap())
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
+    pub async fn react(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/statuses/{note_id}/favourite", self.base_url))
             .bearer_auth(self.token.as_ref().unwrap())
             .header(ACCEPT, "application/json")
             .send()

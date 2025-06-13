@@ -136,4 +136,74 @@ impl MisskeyClient<'_> {
             Err(format!("{response_dump}\n{:#?}", body).into())
         }
     }
+
+    pub async fn renote(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/create", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "renoteId": note_id})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        let body = response.json().await.unwrap();
+        if succeed {
+            Ok(body)
+        } else {
+            Err(format!("{response_dump}\n{:#?}", body).into())
+        }
+    }
+
+    pub async fn quote_renote(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/create", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "renoteId": note_id, "text": text})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        let body = response.json().await.unwrap();
+        if succeed {
+            Ok(body)
+        } else {
+            Err(format!("{response_dump}\n{:#?}", body).into())
+        }
+    }
+
+    pub async fn reply(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/create", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "replyId": note_id, "text": text})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        let body = response.json().await.unwrap();
+        if succeed {
+            Ok(body)
+        } else {
+            Err(format!("{response_dump}\n{:#?}", body).into())
+        }
+    }
+
+    pub async fn react(&self, note_id: &str, reaction: &str) -> Result<(), Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/reactions/create", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "noteId": note_id, "reaction": reaction})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        if succeed { Ok(()) } else { Err(format!("{response:?}").into()) }
+    }
 }
