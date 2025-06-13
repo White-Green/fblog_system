@@ -204,10 +204,6 @@ impl MisskeyClient<'_> {
             .await
             .unwrap();
         let succeed = response.status().is_success();
-        if succeed {
-            Ok(())
-        } else {
-            Err(format!("{response:?}").into())
-        }
+        if succeed { Ok(()) } else { Err(format!("{response:?}").into()) }
     }
 }
