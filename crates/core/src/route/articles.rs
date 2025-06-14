@@ -1,6 +1,5 @@
 use crate::common::headers::{AP_RESPONSE_MIME, AcceptMime, AcceptMimeSet, HeaderReader};
-use crate::traits::{ArticleComment, ArticleProvider, Env};
-use arrayvec::ArrayVec;
+use crate::traits::{ArticleProvider, Env};
 use axum::Json;
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
@@ -14,13 +13,18 @@ pub(crate) mod events;
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 enum ArticleData {
-    Comments,
+    Meta,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ArticleDataQuery {
     data: Option<ArticleData>,
-    until: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct ArticleMetadata {
+    comment_count: usize,
+    reaction_count: usize,
 }
 
 #[tracing::instrument(skip(state))]
@@ -64,6 +68,30 @@ where
 }
 
 #[tracing::instrument(skip(state))]
+async fn article_metadata_get<E>(header: HeaderMap, slug: String, state: E) -> Response<Body>
+where
+    E: ArticleProvider,
+{
+    let header = HeaderReader::new(&header);
+    match header.select(AcceptMimeSet::JSON) {
+        Some(AcceptMime::Json) => {
+            tracing::info!("accept json");
+            let (comment_count, reaction_count) = futures::join!(state.comment_count(&slug), state.reaction_count(&slug),);
+            let metadata = ArticleMetadata {
+                comment_count,
+                reaction_count,
+            };
+            tracing::info!("{metadata:?}");
+            Json(metadata).into_response()
+        }
+        _ => {
+            tracing::info!("not accepted");
+            StatusCode::NOT_ACCEPTABLE.into_response()
+        }
+    }
+}
+
+#[tracing::instrument(skip(state))]
 pub async fn article_or_comments_get<E>(
     header: HeaderMap,
     Path(slug): Path<String>,
@@ -73,35 +101,8 @@ pub async fn article_or_comments_get<E>(
 where
     E: Env + ArticleProvider + Clone,
 {
-    if matches!(query.data, Some(ArticleData::Comments)) {
-        return article_comments_get(header, slug, query.until, state).await;
-    }
-    article_get(header, slug, state).await
-}
-
-#[tracing::instrument(skip(state))]
-async fn article_comments_get<E>(header: HeaderMap, slug: String, until: Option<u64>, state: E) -> Response<Body>
-where
-    E: ArticleProvider,
-{
-    let header = HeaderReader::new(&header);
-    if header.select(AcceptMimeSet::JSON).is_none() {
-        tracing::info!("not accepted");
-        return StatusCode::NOT_ACCEPTABLE.into_response();
-    }
-    if state.exists_article(&slug).await {
-        #[derive(Debug, Serialize)]
-        struct ArticleCommentsResult {
-            comments: ArrayVec<ArticleComment, 10>,
-            next: String,
-        }
-        let (comments, next_until) = state.get_public_comments_until(&slug, until.unwrap_or(u64::MAX)).await;
-        let result = ArticleCommentsResult {
-            comments,
-            next: format!("/articles/{slug}?data=comments&until={next_until}"),
-        };
-        Json(result).into_response()
-    } else {
-        StatusCode::NOT_FOUND.into_response()
+    match query.data {
+        None => article_get(header, slug, state).await,
+        Some(ArticleData::Meta) => article_metadata_get(header, slug, state).await,
     }
 }

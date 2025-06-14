@@ -21,8 +21,8 @@ impl DockerContainers {
         let process = tokio::process::Command::new("docker")
             .args(["compose", "up", "--build"])
             .current_dir(workspace_dir.join("test_config"))
-            .stderr(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
             .stdin(std::process::Stdio::null())
             .spawn()
             .unwrap();

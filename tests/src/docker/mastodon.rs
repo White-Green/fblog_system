@@ -1,5 +1,5 @@
 use reqwest::Client;
-use reqwest::header::ACCEPT;
+use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use std::error::Error;
 use std::time::Duration;
 
@@ -196,31 +196,12 @@ impl MastodonClient<'_> {
         }
     }
 
-    pub async fn quote_renote(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
-        let response = self
-            .client
-            .post(format!("{}/api/v1/statuses", self.base_url))
-            .bearer_auth(self.token.as_ref().unwrap())
-            .header(ACCEPT, "application/json")
-            .json(&serde_json::json!({"status": text, "quote_id": note_id}))
-            .send()
-            .await
-            .unwrap();
-        let succeed = response.status().is_success();
-        let response_dump = format!("{response:#?}");
-        if succeed {
-            Ok(response.json().await.unwrap())
-        } else {
-            let body = response.text().await.unwrap();
-            Err(format!("{response_dump}\n{}", body).into())
-        }
-    }
-
     pub async fn reply(&self, note_id: &str, text: &str) -> Result<serde_json::Value, Box<dyn Error>> {
         let response = self
             .client
             .post(format!("{}/api/v1/statuses", self.base_url))
             .bearer_auth(self.token.as_ref().unwrap())
+            .header(CONTENT_TYPE, "application/json")
             .header(ACCEPT, "application/json")
             .json(&serde_json::json!({"status": text, "in_reply_to_id": note_id}))
             .send()
@@ -248,7 +229,7 @@ impl MastodonClient<'_> {
         let succeed = response.status().is_success();
         let response_dump = format!("{response:#?}");
         if succeed {
-            Ok(response.json().await.unwrap())
+            Ok(dbg!(response.json().await.unwrap()))
         } else {
             let body = response.text().await.unwrap();
             Err(format!("{response_dump}\n{}", body).into())

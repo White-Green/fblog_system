@@ -17,21 +17,23 @@ pub trait Env {
     fn signing_key(&self) -> &RSASHA2SigningKey;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ArticleNewComment {
+    pub id: String,
     pub author_id: String,
-    pub author_name: String,
-    pub created_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub proceed_at: DateTime<Utc>,
     pub content: String,
     pub raw: String,
-    pub visible_in_public: bool,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ArticleComment {
-    pub author_name: String,
-    pub created_at: Option<DateTime<Utc>>,
-    pub content: String,
+pub struct ArticleNewReaction {
+    pub id: String,
+    pub author_id: String,
+    pub reaction: String,
+    pub proceed_at: DateTime<Utc>,
+    pub raw: String,
 }
 
 pub trait ArticleProvider {
@@ -40,10 +42,10 @@ pub trait ArticleProvider {
     fn get_article_ap(&self, slug: &str) -> impl Future<Output = Option<Body>> + Send;
     fn get_author_id(&self, slug: &str) -> impl Future<Output = Option<String>> + Send;
 
-    fn add_comment_raw(&self, data: Vec<u8>) -> impl Future<Output = ()> + Send;
-    fn get_comments_raw(&self) -> impl Future<Output: Stream<Item = Vec<u8>>> + Send;
     fn add_comment(&self, slug: &str, comment: ArticleNewComment) -> impl Future<Output = ()> + Send;
-    fn get_public_comments_until(&self, slug: &str, until: u64) -> impl Future<Output = (ArrayVec<ArticleComment, 10>, u64)> + Send;
+    fn add_reaction(&self, slug: &str, reaction: ArticleNewReaction) -> impl Future<Output = ()> + Send;
+    fn comment_count(&self, slug: &str) -> impl Future<Output = usize> + Send;
+    fn reaction_count(&self, slug: &str) -> impl Future<Output = usize> + Send;
 }
 
 pub trait UserProvider {
