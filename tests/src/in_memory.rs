@@ -59,9 +59,9 @@ impl InMemoryBlog {
         self.client.delete(format!("http://localhost:8787/articles/{slug}")).send().await.unwrap();
     }
 
-    pub async fn get_comments_raw(&self) -> serde_json::Value {
+    pub async fn get_metadata(&self, slug: &str) -> serde_json::Value {
         self.client
-            .get("http://localhost:8787/comments_raw")
+            .get(format!("http://localhost:8787/articles/{slug}?data=meta"))
             .header("Accept", "application/json")
             .send()
             .await

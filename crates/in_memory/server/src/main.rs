@@ -8,7 +8,7 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use fblog_system_core::process_queue::process_queue;
 use fblog_system_core::route::router;
-use fblog_system_core::traits::{ArticleComment, ArticleNewComment, ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
+use fblog_system_core::traits::{ArticleNewComment, ArticleNewReaction, ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
 use futures::{Stream, stream};
 use rsa::pkcs1v15::SigningKey;
 use rsa::pkcs8::DecodePrivateKey;
@@ -16,7 +16,7 @@ use rsa::sha2::Sha256;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
+use std::sync::{Arc, atomic};
 use std::{env, future};
 use tokio::sync::RwLock as TokioRwLock;
 use tower_http::trace::{self, TraceLayer};
@@ -40,15 +40,16 @@ struct ArticleState {
     author: String,
     info_html: String,
     info_ap: String,
+    comments: Vec<ArticleNewComment>,
+    reactions: Vec<ArticleNewReaction>,
 }
 
 #[derive(Clone)]
 struct InMemoryServer {
     articles: Arc<TokioRwLock<HashMap<String, ArticleState>>>,
-    comments_raw: Arc<TokioRwLock<Vec<Vec<u8>>>>,
     users: Arc<TokioRwLock<HashMap<String, UserState>>>,
     queue: tokio::sync::mpsc::UnboundedSender<QueueData>,
-    pending_jobs: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    pending_jobs: Arc<atomic::AtomicUsize>,
     client: reqwest::Client,
     base_url: String,
     key: SigningKey<rsa::sha2::Sha256>,
@@ -68,10 +69,9 @@ impl InMemoryServer {
 
         Self {
             articles: Arc::new(TokioRwLock::new(HashMap::new())),
-            comments_raw: Arc::new(TokioRwLock::new(Vec::new())),
             users: Arc::new(TokioRwLock::new(HashMap::new())),
             queue,
-            pending_jobs: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            pending_jobs: Arc::new(atomic::AtomicUsize::new(0)),
             client: client_builder.build().unwrap(),
             base_url: "https://blog.test".to_string(),
             key,
@@ -115,35 +115,20 @@ impl ArticleProvider for InMemoryServer {
         articles.get(slug).map(|state| state.author.clone())
     }
 
-    async fn add_comment_raw(&self, data: Vec<u8>) {
-        let mut comments_raw = self.comments_raw.write().await;
-        comments_raw.push(data);
+    async fn add_comment(&self, slug: &str, comment: ArticleNewComment) {
+        self.articles.write().await.get_mut(slug).unwrap().comments.push(comment);
     }
 
-    #[allow(refining_impl_trait)]
-    async fn get_comments_raw(&self) -> impl Stream<Item = Vec<u8>> + Send {
-        let comments_raw = self.comments_raw.read().await;
-        stream::iter(Vec::clone(&comments_raw).into_iter())
+    async fn add_reaction(&self, slug: &str, reaction: ArticleNewReaction) {
+        self.articles.write().await.get_mut(slug).unwrap().reactions.push(reaction);
     }
 
-    async fn add_comment(&self, _slug: &str, _comment: ArticleNewComment) {
-        todo!()
+    async fn comment_count(&self, slug: &str) -> usize {
+        self.articles.read().await.get(slug).unwrap().comments.len()
     }
 
-    async fn get_public_comments_until(&self, _slug: &str, until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
-        let comments_raw = self.comments_raw.read().await;
-        let until = (until as usize).min(comments_raw.len());
-        let start = until.saturating_sub(10);
-        let mut comments = ArrayVec::<ArticleComment, 10>::new();
-        for raw in &comments_raw[start..until] {
-            let content = String::from_utf8_lossy(raw).to_string();
-            let _ = comments.try_push(ArticleComment {
-                author_name: "unknown".to_owned(),
-                created_at: None,
-                content,
-            });
-        }
-        (comments, start as u64)
+    async fn reaction_count(&self, slug: &str) -> usize {
+        self.articles.read().await.get(slug).unwrap().reactions.len()
     }
 }
 
@@ -312,6 +297,8 @@ async fn main() {
                             author: "default".to_owned(),
                             info_html: format!("<!DOCTYPE html><html><head></head><body><h1>Article {slug}</h1></body></html>"),
                             info_ap,
+                            comments: Vec::new(),
+                            reactions: Vec::new(),
                         },
                     );
                 }
@@ -360,21 +347,9 @@ async fn main() {
             axum::routing::get({
                 let pending = state.pending_jobs.clone();
                 async move || {
-                    let len = pending.load(std::sync::atomic::Ordering::SeqCst);
+                    let len = pending.load(atomic::Ordering::SeqCst);
                     tracing::info!("pending jobs: {}", len);
                     Json(len)
-                }
-            }),
-        )
-        .route(
-            "/comments_raw",
-            axum::routing::get({
-                let comments = state.comments_raw.clone();
-                async move || {
-                    let comments = comments.read().await;
-                    let body: Vec<String> = comments.iter().map(|c| String::from_utf8_lossy(c).to_string()).collect();
-                    tracing::info!("comments: {}", body.len());
-                    Json(body)
                 }
             }),
         )
@@ -418,7 +393,7 @@ async fn main() {
         loop {
             let data = receiver.recv().await.unwrap();
             process_queue(&state, data).await;
-            state.pending_jobs.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+            state.pending_jobs.fetch_sub(1, atomic::Ordering::SeqCst);
         }
     });
 }
