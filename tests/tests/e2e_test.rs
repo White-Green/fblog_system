@@ -89,7 +89,8 @@ fn main() {
         tokio::try_join!(
             sharkey.quote_renote(sharkey_note["object"]["id"].as_str().unwrap(), "quote"),
             misskey.quote_renote(misskey_note["object"]["id"].as_str().unwrap(), "quote"),
-            mastodon.quote_renote(mastodon_note["id"].as_str().unwrap(), "quote"),
+            // Mastodonには引用機能が無いらしい
+            // mastodon.quote_renote(mastodon_note["id"].as_str().unwrap(), "quote"),
         )
         .unwrap();
 
@@ -106,8 +107,11 @@ fn main() {
             mastodon.react(mastodon_note["id"].as_str().unwrap()),
         )
         .unwrap();
-        wait_for(async || in_memory.get_comments_raw().await.as_array().unwrap().len() == 6).await;
-        assert_eq!(in_memory.get_comments_raw().await.as_array().unwrap().len(), 6);
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
+        wait_for(async || {
+            let metadata = dbg!(in_memory.get_metadata("first-post").await);
+            metadata["comment_count"] == 5 && metadata["reaction_count"] == 3
+        }).await;
 
         in_memory
             .send_queue_data(QueueData::DeliveryNewArticleToAll {
@@ -121,7 +125,7 @@ fn main() {
             wait_for(async || dbg!(sharkey.fetch_timeline().await.unwrap().len()) == 6),
             wait_for(async || dbg!(misskey.fetch_timeline().await.unwrap().len()) == 6),
             // mastodonはrenoteをTLに表示しないらしく、ノート数が1つ少なくなる
-            wait_for(async || dbg!(mastodon.fetch_timeline().await.unwrap().len()) == 5),
+            wait_for(async || dbg!(mastodon.fetch_timeline().await.unwrap().len()) == 4),
         );
 
         let mut new_article_ap = serde_json::from_str::<serde_json::Value>(include_str!("../../dist/raw__/articles/ap/markdown-style-guide.json")).unwrap();
@@ -158,7 +162,7 @@ fn main() {
         tokio::join!(
             wait_for(async || sharkey.fetch_timeline().await.unwrap().len() == 5),
             wait_for(async || misskey.fetch_timeline().await.unwrap().len() == 5),
-            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 4),
+            wait_for(async || mastodon.fetch_timeline().await.unwrap().len() == 3),
         );
 
         tokio::try_join!(
@@ -184,7 +188,7 @@ fn main() {
             async { assert_eq!(sharkey.fetch_timeline().await.unwrap().len(), 5) },
             async { assert_eq!(misskey.fetch_timeline().await.unwrap().len(), 5) },
             // MastodonはUnfollowしたユーザのノートがタイムラインからちゃんと消えるらしいので少なくなる
-            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 2) },
+            async { assert_eq!(mastodon.fetch_timeline().await.unwrap().len(), 1) },
         );
     });
 }

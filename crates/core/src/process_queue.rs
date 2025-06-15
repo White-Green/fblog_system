@@ -1,10 +1,11 @@
 use crate::common::headers::{AP_ACCEPT, AP_RESPONSE_MIME};
 use crate::common::macros::json_format;
 use crate::common::{headers, sign};
-use crate::traits::{ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
+use crate::traits::{ArticleNewComment, ArticleNewReaction, ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
 use axum::http::StatusCode;
 use axum::http::header::{ACCEPT, CONTENT_TYPE};
 use bytes::Bytes;
+use chrono::{DateTime, FixedOffset};
 use futures::{StreamExt, TryStreamExt};
 use http_body_util::{BodyExt, Limited};
 use mime::Mime;
@@ -40,35 +41,70 @@ where
             body,
             verified,
         } => {
-            let body: ResponseBody = if verified {
-                match serde_json::from_str(body.as_deref().unwrap_or("")) {
-                    Ok(b) => b,
-                    Err(_) => {
-                        return ProcessQueueResult::Finished;
-                    }
-                }
+            let body_raw = if verified {
+                body.unwrap_or_default()
             } else {
-                let Ok(b) = get_ap_data(&id, state).await else {
+                let Ok(b) = get_ap_data_raw(&id, state).await else {
                     return ProcessQueueResult::Finished;
                 };
-                b
+                String::from_utf8_lossy(&b).into_owned()
+            };
+            let body = match serde_json::from_str(&body_raw) {
+                Ok(b) => b,
+                Err(e) => {
+                    tracing::warn!("failed to deserialize body: {e} raw={}", body_raw);
+                    return ProcessQueueResult::Finished;
+                }
             };
             tracing::info!("body: {:?}", body);
             match body {
-                ResponseBody::Create { object } => {
-                    let Ok(comment_data_raw) = get_ap_data_raw(object.id(), state).await else {
-                        return ProcessQueueResult::Finished;
+                ResponseBody::Create {
+                    object:
+                        NoteObject {
+                            id,
+                            attributed_to,
+                            published,
+                            content,
+                            reply_target,
+                        },
+                } => {
+                    let reply_target = reply_target.into_string();
+                    let slug = match reply_target.strip_prefix(&format!("{}/articles/", state.url())) {
+                        Some(slug) => slug,
+                        None => {
+                            tracing::warn!("invalid reply target: {reply_target}");
+                            return ProcessQueueResult::Finished;
+                        }
                     };
-                    tracing::info!("comment_data_raw: {}", String::from_utf8_lossy(&comment_data_raw));
-                    state.add_comment_raw(comment_data_raw).await;
+                    let comment = ArticleNewComment {
+                        id,
+                        author_id: attributed_to,
+                        created_at: published.into(),
+                        proceed_at: state.timestamp_now(),
+                        content,
+                        raw: body_raw,
+                    };
+                    tracing::info!("comment_data: {comment:#?}");
+                    state.add_comment(slug, comment).await;
                     return ProcessQueueResult::Finished;
                 }
-                ResponseBody::Like { id } => {
-                    let Ok(comment_data_raw) = get_ap_data_raw(&id, state).await else {
-                        return ProcessQueueResult::Finished;
+                ResponseBody::Like { id, actor, object, content } => {
+                    let slug = match object.strip_prefix(&format!("{}/articles/", state.url())) {
+                        Some(slug) => slug,
+                        None => {
+                            tracing::warn!("invalid reaction target: {object}");
+                            return ProcessQueueResult::Finished;
+                        }
                     };
-                    tracing::info!("comment_data_raw: {}", String::from_utf8_lossy(&comment_data_raw));
-                    state.add_comment_raw(comment_data_raw).await;
+                    let reaction = ArticleNewReaction {
+                        id,
+                        author_id: actor,
+                        proceed_at: state.timestamp_now(),
+                        reaction: content,
+                        raw: body_raw,
+                    };
+                    tracing::info!("reaction_data: {reaction:#?}");
+                    state.add_reaction(slug, reaction).await;
                     return ProcessQueueResult::Finished;
                 }
             }
@@ -416,26 +452,46 @@ where
     }
 
     #[derive(Debug, Deserialize)]
-    #[serde(untagged)]
-    enum AnyId {
-        String(String),
-        Object { id: String },
-    }
-
-    impl AnyId {
-        fn id(&self) -> &str {
-            match self {
-                AnyId::String(id) => id,
-                AnyId::Object { id } => id,
-            }
-        }
-    }
-
-    #[derive(Debug, Deserialize)]
     #[serde(tag = "type")]
     enum ResponseBody {
-        Create { object: AnyId },
-        Like { id: String },
+        Create {
+            object: NoteObject,
+        },
+        Like {
+            id: String,
+            actor: String,
+            object: String,
+            #[serde(default)]
+            content: String,
+        },
+    }
+    #[derive(Debug, Deserialize)]
+    struct NoteObject {
+        id: String,
+        #[serde(rename = "attributedTo")]
+        attributed_to: String,
+        published: DateTime<FixedOffset>,
+        content: String,
+        #[serde(flatten)]
+        reply_target: ReplyTarget,
+    }
+    #[derive(Debug, Deserialize)]
+    enum ReplyTarget {
+        #[serde(rename = "inReplyTo")]
+        InReplyTo(String),
+        #[serde(rename = "quoteUri")]
+        QuoteUri(String),
+        #[serde(rename = "quoteUrl")]
+        QuoteUrl(String),
+    }
+    impl ReplyTarget {
+        fn into_string(self) -> String {
+            match self {
+                ReplyTarget::InReplyTo(id) => id,
+                ReplyTarget::QuoteUri(uri) => uri,
+                ReplyTarget::QuoteUrl(url) => url,
+            }
+        }
     }
 }
 

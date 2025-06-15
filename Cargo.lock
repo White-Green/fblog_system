@@ -306,12 +306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-utils"
-version = "0.8.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
-
-[[package]]
 name = "crunchy"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -498,7 +492,6 @@ dependencies = [
  "bytes",
  "chrono",
  "console_error_panic_hook",
- "crossbeam-utils",
  "fblog_system_core",
  "futures",
  "http",
@@ -513,7 +506,6 @@ dependencies = [
  "tracing-subscriber",
  "tracing-web",
  "worker",
- "worker-macros",
 ]
 
 [[package]]

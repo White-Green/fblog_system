@@ -50,6 +50,10 @@ impl WorkerState {
         self.env.assets("ASSETS").unwrap()
     }
 
+    fn r2(&self) -> worker::Bucket {
+        self.env.bucket("R2_BUCKET").unwrap()
+    }
+
     #[worker::send]
     async fn fetch_asset(&self, path: impl Display) -> http::Response<Body> {
         self.assets()
@@ -115,14 +119,114 @@ impl ArticleProvider for WorkerState {
         Some(author_id)
     }
 
-    async fn add_comment_raw(&self, _data: Vec<u8>) {}
-    #[allow(refining_impl_trait)]
-    fn get_comments_raw(&self) -> impl Future<Output = impl Stream<Item = Vec<u8>> + Send> + Send {
-        futures::future::ready(futures::stream::empty())
+    #[worker::send]
+    async fn add_comment(&self, slug: &str, comment: ArticleNewComment) {
+        // Serialize the comment and store it in R2 bucket
+        let json = match serde_json::to_string(&comment) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to serialize comment");
+                return;
+            }
+        };
+
+        let path = format!("comments/{}/{}", slug, comment.id);
+        if let Err(e) = self.r2().put(&path, json.clone()).execute().await {
+            tracing::error!(error = ?e, "Failed to store comment in R2");
+            return;
+        }
+
+        // Increment the comment count in D1
+        match worker::query!(
+            self.db.as_ref(),
+            "INSERT INTO comments (slug, count) VALUES (?1, 1)
+             ON CONFLICT (slug) DO UPDATE SET count = count + 1",
+            &slug
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "Failed to increment comment count in D1");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare increment comment count query");
+            }
+        }
     }
-    async fn add_comment(&self, _slug: &str, _comment: ArticleNewComment) {}
-    async fn get_public_comments_until(&self, _slug: &str, _until: u64) -> (ArrayVec<ArticleComment, 10>, u64) {
-        (ArrayVec::new(), 0)
+
+    #[worker::send]
+    async fn add_reaction(&self, slug: &str, reaction: ArticleNewReaction) {
+        // Serialize the reaction and store it in R2 bucket
+        let json = match serde_json::to_string(&reaction) {
+            Ok(json) => json,
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to serialize reaction");
+                return;
+            }
+        };
+
+        let path = format!("reactions/{}/{}", slug, reaction.id);
+        if let Err(e) = self.r2().put(&path, json.clone()).execute().await {
+            tracing::error!(error = ?e, "Failed to store reaction in R2");
+            return;
+        }
+
+        // Increment the reaction count in D1
+        match worker::query!(
+            self.db.as_ref(),
+            "INSERT INTO reactions (slug, count) VALUES (?1, 1)
+             ON CONFLICT (slug) DO UPDATE SET count = count + 1",
+            &slug
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "Failed to increment reaction count in D1");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare increment reaction count query");
+            }
+        }
+    }
+
+    #[worker::send]
+    async fn comment_count(&self, slug: &str) -> usize {
+        let stmt = match worker::query!(self.db.as_ref(), "SELECT count FROM comments WHERE slug = ?1", &slug) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare comment count query");
+                return 0;
+            }
+        };
+
+        match stmt.first::<i64>(None).await {
+            Ok(Some(count)) => count as usize,
+            Ok(None) => 0, // No record found
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to execute comment count query");
+                0
+            }
+        }
+    }
+
+    #[worker::send]
+    async fn reaction_count(&self, slug: &str) -> usize {
+        let stmt = match worker::query!(self.db.as_ref(), "SELECT count FROM reactions WHERE slug = ?1", &slug) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare reaction count query");
+                return 0;
+            }
+        };
+
+        match stmt.first::<i64>(None).await {
+            Ok(Some(count)) => count as usize,
+            Ok(None) => 0, // No record found
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to execute reaction count query");
+                0
+            }
+        }
     }
 }
 
@@ -354,7 +458,33 @@ async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
         )
         .await
     {
-        tracing::error!(error = ?e, "failed to initialize database");
+        tracing::error!(error = ?e, "failed to initialize followers table");
+    }
+
+    // Create comments table
+    if let Err(e) = db
+        .exec(
+            "CREATE TABLE IF NOT EXISTS comments (
+                slug TEXT PRIMARY KEY,
+                count INTEGER DEFAULT 0
+            )",
+        )
+        .await
+    {
+        tracing::error!(error = ?e, "failed to initialize comments table");
+    }
+
+    // Create reactions table
+    if let Err(e) = db
+        .exec(
+            "CREATE TABLE IF NOT EXISTS reactions (
+                slug TEXT PRIMARY KEY,
+                count INTEGER DEFAULT 0
+            )",
+        )
+        .await
+    {
+        tracing::error!(error = ?e, "failed to initialize reactions table");
     }
 }
 

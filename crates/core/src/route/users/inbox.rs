@@ -53,7 +53,8 @@ where
             let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
-            (true, collected.to_bytes())
+            let bytes = collected.to_bytes();
+            (true, bytes)
         }
         VerifiedRequest::CannotVerify(req) => {
             let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
@@ -92,7 +93,7 @@ where
             username,
             ty: inbox.ty,
             id: inbox.id.clone(),
-            body: if verified { Some(data.clone()) } else { None },
+            body: verified.then(|| data.clone()),
             verified,
         }
     } else {
