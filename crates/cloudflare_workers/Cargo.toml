@@ -26,6 +26,7 @@ futures = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 reqwest = { workspace = true }
+ring = { version = "0.17", features = ["wasm32_unknown_unknown_js"] }
 rsa = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
