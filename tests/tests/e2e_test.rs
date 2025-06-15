@@ -37,12 +37,12 @@ fn main() {
         let mut mastodon = docker.mastodon_client();
         let sharkey = docker.sharkey_client();
 
-        // tokio::join!(
-            wait_for(async || in_memory.server_started().await).await;
-            wait_for(async || misskey.server_started().await).await;
-            wait_for(async || mastodon.server_started().await).await;
-            wait_for(async || sharkey.server_started().await).await;
-        // );
+        tokio::join!(
+            wait_for(async || in_memory.server_started().await),
+            wait_for(async || misskey.server_started().await),
+            wait_for(async || mastodon.server_started().await),
+            wait_for(async || sharkey.server_started().await),
+        );
 
         let (sharkey_note, misskey_note, mastodon_note) = tokio::try_join!(
             sharkey.get_note("https://blog.test/articles/first-post"),
