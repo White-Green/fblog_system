@@ -452,22 +452,6 @@ where
     }
 
     #[derive(Debug, Deserialize)]
-    #[serde(untagged)]
-    enum AnyId {
-        String(String),
-        Object { id: String },
-    }
-
-    impl AnyId {
-        fn id(&self) -> &str {
-            match self {
-                AnyId::String(id) => id,
-                AnyId::Object { id } => id,
-            }
-        }
-    }
-
-    #[derive(Debug, Deserialize)]
     #[serde(tag = "type")]
     enum ResponseBody {
         Create {

@@ -23,8 +23,8 @@ database_name = "followers"
 database_id = "00000000-0000-0000-0000-000000000000"
 
 [[queues.producers]]
-queue = "job_queue"
 binding = "JOB_QUEUE"
+queue = "job_queue"
 
 [[queues.consumers]]
 queue = "job_queue"
