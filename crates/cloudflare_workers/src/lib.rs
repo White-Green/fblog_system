@@ -139,7 +139,7 @@ impl ArticleProvider for WorkerState {
         // Increment the comment count in D1
         match worker::query!(
             self.db.as_ref(),
-            "INSERT INTO comments (slug, count) VALUES (?1, 1)
+            "INSERT INTO comments (slug, count) VALUES (?1, 1)\
              ON CONFLICT (slug) DO UPDATE SET count = count + 1",
             &slug
         ) {
@@ -174,7 +174,7 @@ impl ArticleProvider for WorkerState {
         // Increment the reaction count in D1
         match worker::query!(
             self.db.as_ref(),
-            "INSERT INTO reactions (slug, count) VALUES (?1, 1)
+            "INSERT INTO reactions (slug, count) VALUES (?1, 1)\
              ON CONFLICT (slug) DO UPDATE SET count = count + 1",
             &slug
         ) {
@@ -449,11 +449,11 @@ impl HTTPClient for WorkerState {
 async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
     if let Err(e) = db
         .exec(
-            "CREATE TABLE IF NOT EXISTS followers (
-                username TEXT,
-                follower_id TEXT,
-                inbox TEXT,
-                event_id TEXT
+            "CREATE TABLE IF NOT EXISTS followers (\
+                username TEXT,\
+                follower_id TEXT,\
+                inbox TEXT,\
+                event_id TEXT\
             )",
         )
         .await
@@ -464,9 +464,9 @@ async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
     // Create comments table
     if let Err(e) = db
         .exec(
-            "CREATE TABLE IF NOT EXISTS comments (
-                slug TEXT PRIMARY KEY,
-                count INTEGER DEFAULT 0
+            "CREATE TABLE IF NOT EXISTS comments (\
+                slug TEXT PRIMARY KEY,\
+                count INTEGER DEFAULT 0\
             )",
         )
         .await
@@ -477,9 +477,9 @@ async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
     // Create reactions table
     if let Err(e) = db
         .exec(
-            "CREATE TABLE IF NOT EXISTS reactions (
-                slug TEXT PRIMARY KEY,
-                count INTEGER DEFAULT 0
+            "CREATE TABLE IF NOT EXISTS reactions (\
+                slug TEXT PRIMARY KEY,\
+                count INTEGER DEFAULT 0\
             )",
         )
         .await
