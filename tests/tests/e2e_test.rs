@@ -1,8 +1,8 @@
-use std::path::Path;
 use e2e_test::docker::DockerContainers;
 use e2e_test::in_memory::InMemoryBlog;
 use fblog_system_core::traits::QueueData;
 use reqwest::{Certificate, Client};
+use std::path::Path;
 use std::time::Duration;
 
 async fn wait_for(mut pred: impl AsyncFnMut() -> bool) {
