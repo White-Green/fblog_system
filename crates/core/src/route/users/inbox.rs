@@ -68,33 +68,13 @@ where
         Ok(s) => s,
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
     };
-    let queue_data = if let Ok(inbox_data) = serde_json::from_str::<SpecializedInboxData>(&data) {
-        tracing::info!("specialized inbox data: {inbox_data:?}");
-        match inbox_data {
-            SpecializedInboxData::Follow { actor, object, id } => QueueData::Follow {
-                username,
-                actor,
-                object,
-                id,
-                verified,
-            },
-            SpecializedInboxData::Undo { object } => match object {
-                UndoObject::Follow { id, actor, object } => QueueData::Unfollow {
-                    username,
-                    id: id.into_id(),
-                    actor,
-                    object,
-                },
-            },
-        }
-    } else if let Ok(inbox) = serde_json::from_str::<InboxData>(&data) {
+    let queue_data = if let Ok(inbox) = serde_json::from_str::<InboxData>(&data) {
         tracing::info!("inbox data: {inbox:?}");
         QueueData::Inbox {
             username,
             ty: inbox.ty,
             id: inbox.id.clone(),
-            body: verified.then(|| data.clone()),
-            verified,
+            verified_body: verified.then(|| data.clone()),
         }
     } else {
         tracing::error!("failed to parse inbox data: {data}");
@@ -104,40 +84,6 @@ where
     state.enqueue(queue_data).await;
     return StatusCode::ACCEPTED.into_response();
 
-    #[derive(Debug, Deserialize)]
-    #[serde(tag = "type")]
-    enum SpecializedInboxData {
-        Follow { actor: String, object: String, id: String },
-        Undo { object: UndoObject },
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(tag = "type")]
-    enum UndoObject {
-        Follow {
-            id: AnyId,
-            #[serde(default)]
-            actor: Option<String>,
-            #[serde(default)]
-            object: Option<String>,
-        },
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(untagged)]
-    enum AnyId {
-        String(String),
-        Object { id: String },
-    }
-
-    impl AnyId {
-        fn into_id(self) -> String {
-            match self {
-                AnyId::String(id) => id,
-                AnyId::Object { id } => id,
-            }
-        }
-    }
     #[derive(Debug, Deserialize)]
     struct InboxData {
         id: String,

@@ -194,12 +194,25 @@ impl MisskeyClient<'_> {
         }
     }
 
-    pub async fn react(&self, note_id: &str, reaction: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn reaction(&self, note_id: &str, reaction: &str) -> Result<(), Box<dyn Error>> {
         let response = self
             .client
             .post(format!("{}/api/notes/reactions/create", self.base_url))
             .header("Content-Type", "application/json")
             .body(serde_json::to_string(&serde_json::json!({"i": self.token, "noteId": note_id, "reaction": reaction})).unwrap())
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        if succeed { Ok(()) } else { Err(format!("{response:?}").into()) }
+    }
+
+    pub async fn delete_reaction(&self, note_id: &str) -> Result<(), Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/notes/reactions/delete", self.base_url))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(&serde_json::json!({"i": self.token, "noteId": note_id})).unwrap())
             .send()
             .await
             .unwrap();

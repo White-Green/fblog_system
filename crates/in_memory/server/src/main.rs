@@ -123,6 +123,16 @@ impl ArticleProvider for InMemoryServer {
         self.articles.write().await.get_mut(slug).unwrap().reactions.push(reaction);
     }
 
+    async fn remove_reaction_by(&self, slug: &str, actor: &str) {
+        self.articles
+            .write()
+            .await
+            .get_mut(slug)
+            .unwrap()
+            .reactions
+            .retain(|ArticleNewReaction { author_id, .. }| author_id != actor);
+    }
+
     async fn comment_count(&self, slug: &str) -> usize {
         self.articles.read().await.get(slug).unwrap().comments.len()
     }
@@ -178,18 +188,18 @@ impl UserProvider for InMemoryServer {
         }
     }
 
-    async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
+    async fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) {
         let mut users = self.users.write().await;
         if let Some(UserState { followers, .. }) = users.get_mut(username) {
             followers.push(Follower {
-                id: follower_id,
-                inbox,
-                event_id,
+                id: follower_id.to_owned(),
+                inbox: inbox.to_owned(),
+                event_id: event_id.to_owned(),
             });
         }
     }
 
-    async fn remove_follower(&self, username: &str, event_id: String) {
+    async fn remove_follower(&self, username: &str, event_id: &str) {
         let mut users = self.users.write().await;
         if let Some(UserState { followers, .. }) = users.get_mut(username) {
             if let Some(pos) = followers.iter().position(|f| f.event_id == event_id) {
@@ -198,7 +208,7 @@ impl UserProvider for InMemoryServer {
         }
     }
 
-    async fn remove_follower_by_actor(&self, username: &str, actor: String) {
+    async fn remove_follower_by_actor(&self, username: &str, actor: &str) {
         let mut users = self.users.write().await;
         if let Some(UserState { followers, .. }) = users.get_mut(username) {
             if let Some(pos) = followers.iter().position(|f| f.id == actor) {

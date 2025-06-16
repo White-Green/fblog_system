@@ -44,6 +44,7 @@ pub trait ArticleProvider {
 
     fn add_comment(&self, slug: &str, comment: ArticleNewComment) -> impl Future<Output = ()> + Send;
     fn add_reaction(&self, slug: &str, reaction: ArticleNewReaction) -> impl Future<Output = ()> + Send;
+    fn remove_reaction_by(&self, slug: &str, actor: &str) -> impl Future<Output = ()> + Send;
     fn comment_count(&self, slug: &str) -> impl Future<Output = usize> + Send;
     fn reaction_count(&self, slug: &str) -> impl Future<Output = usize> + Send;
 }
@@ -57,9 +58,9 @@ pub trait UserProvider {
     fn get_followers_len(&self, username: &str) -> impl Future<Output = usize> + Send;
     fn get_follower_ids_until(&self, username: &str, until: u64) -> impl Future<Output = (ArrayVec<String, 10>, u64)> + Send;
 
-    fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) -> impl Future<Output = ()> + Send;
-    fn remove_follower(&self, username: &str, event_id: String) -> impl Future<Output = ()> + Send;
-    fn remove_follower_by_actor(&self, username: &str, actor: String) -> impl Future<Output = ()> + Send;
+    fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) -> impl Future<Output = ()> + Send;
+    fn remove_follower(&self, username: &str, event_id: &str) -> impl Future<Output = ()> + Send;
+    fn remove_follower_by_actor(&self, username: &str, actor: &str) -> impl Future<Output = ()> + Send;
     fn get_followers_inbox(&self, username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send;
 }
 
@@ -69,8 +70,7 @@ pub enum QueueData {
         username: String,
         ty: String,
         id: String,
-        body: Option<String>,
-        verified: bool,
+        verified_body: Option<String>,
     },
     DeliveryNewArticleToAll {
         slug: String,
@@ -96,19 +96,6 @@ pub enum QueueData {
         slug: String,
         author: String,
         inbox: String,
-    },
-    Follow {
-        username: String,
-        actor: String,
-        object: String,
-        id: String,
-        verified: bool,
-    },
-    Unfollow {
-        username: String,
-        id: String,
-        actor: Option<String>,
-        object: Option<String>,
     },
 }
 

@@ -102,15 +102,28 @@ fn main() {
         .unwrap();
 
         tokio::try_join!(
-            sharkey.react(sharkey_note["object"]["id"].as_str().unwrap(), "👍"),
-            misskey.react(misskey_note["object"]["id"].as_str().unwrap(), "👍"),
-            mastodon.react(mastodon_note["id"].as_str().unwrap()),
+            sharkey.reaction(sharkey_note["object"]["id"].as_str().unwrap(), "👍"),
+            misskey.reaction(misskey_note["object"]["id"].as_str().unwrap(), "👍"),
+            mastodon.reaction(mastodon_note["id"].as_str().unwrap()),
         )
         .unwrap();
         wait_for(async || in_memory.job_queue_len().await == 0).await;
         wait_for(async || {
             let metadata = dbg!(in_memory.get_metadata("first-post").await);
             metadata["comment_count"] == 5 && metadata["reaction_count"] == 3
+        }).await;
+
+        tokio::try_join!(
+            sharkey.delete_reaction(sharkey_note["object"]["id"].as_str().unwrap()),
+            misskey.delete_reaction(misskey_note["object"]["id"].as_str().unwrap()),
+            mastodon.delete_reaction(mastodon_note["id"].as_str().unwrap()),
+        )
+            .unwrap();
+
+        wait_for(async || in_memory.job_queue_len().await == 0).await;
+        wait_for(async || {
+            let metadata = dbg!(in_memory.get_metadata("first-post").await);
+            metadata["comment_count"] == 5 && metadata["reaction_count"] == 0
         }).await;
 
         in_memory

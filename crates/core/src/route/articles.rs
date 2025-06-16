@@ -72,6 +72,9 @@ async fn article_metadata_get<E>(header: HeaderMap, slug: String, state: E) -> R
 where
     E: ArticleProvider,
 {
+    if !state.exists_article(&slug).await {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let header = HeaderReader::new(&header);
     match header.select(AcceptMimeSet::JSON) {
         Some(AcceptMime::Json) => {

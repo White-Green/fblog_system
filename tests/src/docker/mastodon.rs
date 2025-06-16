@@ -217,10 +217,29 @@ impl MastodonClient<'_> {
         }
     }
 
-    pub async fn react(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+    pub async fn reaction(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
         let response = self
             .client
             .post(format!("{}/api/v1/statuses/{note_id}/favourite", self.base_url))
+            .bearer_auth(self.token.as_ref().unwrap())
+            .header(ACCEPT, "application/json")
+            .send()
+            .await
+            .unwrap();
+        let succeed = response.status().is_success();
+        let response_dump = format!("{response:#?}");
+        if succeed {
+            Ok(dbg!(response.json().await.unwrap()))
+        } else {
+            let body = response.text().await.unwrap();
+            Err(format!("{response_dump}\n{}", body).into())
+        }
+    }
+
+    pub async fn delete_reaction(&self, note_id: &str) -> Result<serde_json::Value, Box<dyn Error>> {
+        let response = self
+            .client
+            .post(format!("{}/api/v1/statuses/{note_id}/unfavourite", self.base_url))
             .bearer_auth(self.token.as_ref().unwrap())
             .header(ACCEPT, "application/json")
             .send()
