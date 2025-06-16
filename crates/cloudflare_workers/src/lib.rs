@@ -155,8 +155,39 @@ impl ArticleProvider for WorkerState {
     }
 
     #[worker::send]
-    async fn remove_reaction_by(&self, _slug: &str, _actor: &str) {
-        todo!()
+    async fn remove_reaction_by(&self, slug: &str, actor: &str) {
+        // D1からリアクションのカウントを減らす
+        match worker::query!(
+            self.db.as_ref(),
+            "UPDATE reactions SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END WHERE slug = ?1",
+            &slug
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "Failed to decrement reaction count in D1");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare decrement reaction count query");
+            }
+        }
+
+        // D1からアクターのリアクション情報を削除
+        match worker::query!(
+            self.db.as_ref(),
+            "DELETE FROM reaction_actors WHERE slug = ?1 AND actor_id = ?2",
+            &slug,
+            &actor
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "Failed to remove actor's reaction from D1");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare remove actor's reaction query");
+            }
+        }
     }
 
     #[worker::send]
@@ -190,6 +221,24 @@ impl ArticleProvider for WorkerState {
             }
             Err(e) => {
                 tracing::error!(error = ?e, "Failed to prepare increment reaction count query");
+            }
+        }
+
+        // リアクションを行ったアクターの情報をD1に保存
+        match worker::query!(
+            self.db.as_ref(),
+            "INSERT OR REPLACE INTO reaction_actors (slug, actor_id, reaction_id) VALUES (?1, ?2, ?3)",
+            &slug,
+            &reaction.author_id,
+            &reaction.id
+        ) {
+            Ok(stmt) => {
+                if let Err(e) = stmt.run().await {
+                    tracing::error!(error = ?e, "Failed to store actor's reaction in D1");
+                }
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "Failed to prepare store actor's reaction query");
             }
         }
     }
@@ -490,6 +539,21 @@ async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
         .await
     {
         tracing::error!(error = ?e, "failed to initialize reactions table");
+    }
+
+    // Create reaction_actors table
+    if let Err(e) = db
+        .exec(
+            "CREATE TABLE IF NOT EXISTS reaction_actors (\
+                slug TEXT,\
+                actor_id TEXT,\
+                reaction_id TEXT,\
+                PRIMARY KEY (slug, actor_id)\
+            )",
+        )
+        .await
+    {
+        tracing::error!(error = ?e, "failed to initialize reaction_actors table");
     }
 }
 
