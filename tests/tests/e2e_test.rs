@@ -2,6 +2,7 @@ use e2e_test::docker::DockerContainers;
 use e2e_test::in_memory::InMemoryBlog;
 use fblog_system_core::traits::QueueData;
 use reqwest::{Certificate, Client};
+use std::path::Path;
 use std::time::Duration;
 
 async fn wait_for(mut pred: impl AsyncFnMut() -> bool) {
@@ -17,6 +18,8 @@ async fn wait_for(mut pred: impl AsyncFnMut() -> bool) {
 #[test]
 fn main() {
     tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
+        let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        tokio::fs::create_dir(workspace_dir.join("logs")).await.unwrap();
         let client = Client::builder()
             .resolve("misskey.test", "127.0.0.1:443".parse().unwrap())
             .resolve("mastodon.test", "127.0.0.1:443".parse().unwrap())

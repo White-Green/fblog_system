@@ -1,5 +1,6 @@
 use fblog_system_core::traits::QueueData;
 use reqwest::Client;
+use std::fs::File;
 use std::path::Path;
 use std::process::Child;
 use std::time::Duration;
@@ -20,8 +21,12 @@ impl InMemoryBlog {
             )
             .args(["run", "-p", "fblog_system_in_memory_server", "--target-dir"])
             .arg(workspace_dir.join("target_for_e2e_test"))
-            .stderr(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::from(
+                File::create_new(workspace_dir.join("logs").join("in_memory.stderr")).unwrap(),
+            ))
+            .stdout(std::process::Stdio::from(
+                File::create_new(workspace_dir.join("logs").join("in_memory.stdout")).unwrap(),
+            ))
             .stdin(std::process::Stdio::null())
             .spawn()
             .unwrap();

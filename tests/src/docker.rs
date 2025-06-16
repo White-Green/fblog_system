@@ -3,6 +3,7 @@ use crate::docker::misskey::MisskeyClient;
 use crate::docker::sharkey::SharkeyClient;
 use ini::Ini;
 use reqwest::Client;
+use std::fs::File;
 use std::path::Path;
 use tokio::process::Child;
 
@@ -21,8 +22,12 @@ impl DockerContainers {
         let process = tokio::process::Command::new("docker")
             .args(["compose", "up", "--build"])
             .current_dir(workspace_dir.join("test_config"))
-            .stderr(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::from(
+                File::create_new(workspace_dir.join("logs").join("docker.stderr")).unwrap(),
+            ))
+            .stdout(std::process::Stdio::from(
+                File::create_new(workspace_dir.join("logs").join("docker.stdout")).unwrap(),
+            ))
             .stdin(std::process::Stdio::null())
             .spawn()
             .unwrap();
