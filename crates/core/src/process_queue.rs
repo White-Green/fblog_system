@@ -35,14 +35,13 @@ where
     tracing::info!("process queue: {:?}", data);
     match data {
         QueueData::Inbox {
-            username: _,
+            username,
             ty: _,
             id,
-            body,
-            verified,
+            verified_body,
         } => {
-            let body_raw = if verified {
-                body.unwrap_or_default()
+            let body_raw = if let Some(body) = verified_body {
+                body
             } else {
                 let Ok(b) = get_ap_data_raw(&id, state).await else {
                     return ProcessQueueResult::Finished;
@@ -76,6 +75,10 @@ where
                             return ProcessQueueResult::Finished;
                         }
                     };
+                    if state.get_author_id(slug).await.is_none_or(|author| author != username) {
+                        tracing::info!(slug, username, "author mismatch");
+                        return ProcessQueueResult::Finished;
+                    }
                     let comment = ArticleNewComment {
                         id,
                         author_id: attributed_to,
@@ -96,6 +99,10 @@ where
                             return ProcessQueueResult::Finished;
                         }
                     };
+                    if state.get_author_id(slug).await.is_none_or(|author| author != username) {
+                        tracing::info!(slug, username, "author mismatch");
+                        return ProcessQueueResult::Finished;
+                    }
                     let reaction = ArticleNewReaction {
                         id,
                         author_id: actor,
@@ -107,6 +114,129 @@ where
                     state.add_reaction(slug, reaction).await;
                     return ProcessQueueResult::Finished;
                 }
+                ResponseBody::Follow { id, actor, object } => {
+                    let url = state.url();
+                    if object != format!("{}/users/{username}", url) {
+                        tracing::warn!(object, "invalid follow target");
+                        return ProcessQueueResult::Finished;
+                    }
+                    #[derive(Debug, Deserialize)]
+                    struct Person {
+                        #[allow(dead_code)]
+                        #[serde(rename = "id")]
+                        _id: String,
+                        #[serde(rename = "type")]
+                        ty: String,
+                        inbox: String,
+                        #[serde(rename = "sharedInbox")]
+                        shared_inbox: Option<String>,
+                    }
+                    let Ok(user): Result<Person, _> = get_ap_data(&actor, state).await else {
+                        return ProcessQueueResult::Finished;
+                    };
+                    tracing::info!("body: {:?}", user);
+                    if user.ty != "Person" {
+                        tracing::warn!("invalid actor type");
+                        return ProcessQueueResult::Finished;
+                    }
+                    state
+                        .add_follower(&username, &actor, &user.shared_inbox.unwrap_or_else(|| user.inbox.clone()), &id)
+                        .await;
+                    let follow_actor = serde_json::to_string(&actor).unwrap();
+                    let accept_actor = serde_json::to_string(&format!("{url}/users/{username}")).unwrap();
+                    let object = serde_json::to_string(&id).unwrap();
+                    let url = state.url();
+                    let url = Url::parse_with_params(&format!("{url}/users/{username}/accept_follow"), [("object", &object)]).unwrap();
+                    let url = serde_json::to_string(&url.to_string()).unwrap();
+                    tracing::info!("url: {}", url);
+                    let inbox = &user.inbox;
+                    tracing::info!("inbox: {}", inbox);
+                    let string = json_format! {
+                        "@context": "https://www.w3.org/ns/activitystreams",
+                        "id": url,
+                        "type": "Accept",
+                        "actor": accept_actor,
+                        "object": {
+                            "type": "Follow",
+                            "actor": follow_actor,
+                            "object": accept_actor,
+                        },
+                    };
+                    tracing::info!("string: {}", string);
+                    let Ok(request) = axum::http::Request::post(inbox)
+                        .header(ACCEPT, AP_ACCEPT)
+                        .header(CONTENT_TYPE, AP_RESPONSE_MIME)
+                        .body(Bytes::from(string))
+                    else {
+                        tracing::warn!("failed to create post request");
+                        return ProcessQueueResult::Finished;
+                    };
+                    let url = state.url();
+                    let now = state.timestamp_now();
+                    let key = state.signing_key();
+                    let request = sign::sign(request, &format!("{url}/users/{username}#main-key"), key, now);
+                    tracing::info!("request: {:?}", request);
+                    let response = match state.request(request).await {
+                        Ok(response) => response,
+                        Err(e) => {
+                            tracing::warn!("failed to fetch by: {:?}", e);
+                            return ProcessQueueResult::Finished;
+                        }
+                    };
+                    if !response.status().is_success() {
+                        tracing::warn!("failed to post: {:?}", response);
+                        let response = response
+                            .into_body()
+                            .into_data_stream()
+                            .try_fold(Vec::new(), |mut acc, bytes| {
+                                acc.extend_from_slice(&bytes);
+                                future::ready(Ok(acc))
+                            })
+                            .await
+                            .unwrap();
+                        tracing::warn!("response: {:?}", String::from_utf8_lossy(&response));
+                    }
+                    return ProcessQueueResult::Finished;
+                }
+                ResponseBody::Undo { actor: undo_actor, object } => match *object {
+                    ResponseBody::Like {
+                        id: _,
+                        actor,
+                        object,
+                        content: _,
+                    } => {
+                        if undo_actor != actor {
+                            tracing::info!(undo_actor, actor, "actor mismatch");
+                            return ProcessQueueResult::Finished;
+                        }
+                        let Some(slug) = object.strip_prefix(&format!("{}/articles/", state.url())) else {
+                            tracing::warn!(object, "invalid reaction target");
+                            return ProcessQueueResult::Finished;
+                        };
+                        if state.get_author_id(slug).await.is_none_or(|author| author != username) {
+                            tracing::info!(slug, username, "author mismatch");
+                            return ProcessQueueResult::Finished;
+                        }
+                        state.remove_reaction_by(slug, &actor).await;
+                        return ProcessQueueResult::Finished;
+                    }
+                    ResponseBody::Follow { id: _, actor, object } => {
+                        if undo_actor != actor {
+                            tracing::info!(undo_actor, actor, "actor mismatch");
+                            return ProcessQueueResult::Finished;
+                        }
+                        if object != format!("{}/users/{username}", state.url()) {
+                            tracing::warn!(object, username, "invalid unfollow target");
+                            return ProcessQueueResult::Finished;
+                        }
+                        state.remove_follower_by_actor(&username, &actor).await;
+                        return ProcessQueueResult::Finished;
+                    }
+                    object => {
+                        tracing::warn!(object = ?object, "invalid undo target");
+                        return ProcessQueueResult::Finished;
+                    }
+                },
             }
         }
         QueueData::DeliveryNewArticleToAll { slug } => {
@@ -330,125 +460,6 @@ where
                 }
             }
         }
-        QueueData::Follow {
-            username,
-            actor,
-            object,
-            id,
-            verified,
-        } => {
-            let url = state.url();
-            if object != format!("{url}/users/{username}") {
-                tracing::warn!("invalid object");
-                return ProcessQueueResult::Finished;
-            }
-            if !verified {
-                #[derive(Deserialize)]
-                struct FollowEvent {
-                    actor: String,
-                    object: String,
-                }
-                let Ok(event): Result<FollowEvent, _> = get_ap_data(&id, state).await else {
-                    return ProcessQueueResult::Finished;
-                };
-                if event.actor != actor || event.object != object {
-                    tracing::warn!("follow event mismatch");
-                    return ProcessQueueResult::Finished;
-                }
-            }
-            #[derive(Debug, Deserialize)]
-            struct Person {
-                #[allow(dead_code)]
-                #[serde(rename = "id")]
-                _id: String,
-                #[serde(rename = "type")]
-                ty: String,
-                inbox: String,
-                #[serde(rename = "sharedInbox")]
-                shared_inbox: Option<String>,
-            }
-            let Ok(user): Result<Person, _> = get_ap_data(&actor, state).await else {
-                return ProcessQueueResult::Finished;
-            };
-            tracing::info!("body: {:?}", user);
-            if user.ty != "Person" {
-                tracing::warn!("invalid actor type");
-                return ProcessQueueResult::Finished;
-            }
-            state
-                .add_follower(
-                    &username,
-                    actor.clone(),
-                    user.shared_inbox.unwrap_or_else(|| user.inbox.clone()),
-                    id.clone(),
-                )
-                .await;
-            let follow_actor = serde_json::to_string(&actor).unwrap();
-            let accept_actor = serde_json::to_string(&format!("{url}/users/{username}")).unwrap();
-            let object = serde_json::to_string(&id).unwrap();
-            let url = state.url();
-            let url = Url::parse_with_params(&format!("{url}/users/{username}/accept_follow"), [("object", &object)]).unwrap();
-            let url = serde_json::to_string(&url.to_string()).unwrap();
-            tracing::info!("url: {}", url);
-            let inbox = &user.inbox;
-            tracing::info!("inbox: {}", inbox);
-            let string = json_format! {
-                "@context": "https://www.w3.org/ns/activitystreams",
-                "id": url,
-                "type": "Accept",
-                "actor": accept_actor,
-                "object": {
-                    "type": "Follow",
-                    "actor": follow_actor,
-                    "object": accept_actor,
-                },
-            };
-            tracing::info!("string: {}", string);
-            let Ok(request) = axum::http::Request::post(inbox)
-                .header(ACCEPT, AP_ACCEPT)
-                .header(CONTENT_TYPE, AP_RESPONSE_MIME)
-                .body(Bytes::from(string))
-            else {
-                tracing::warn!("failed to create post request");
-                return ProcessQueueResult::Finished;
-            };
-            let url = state.url();
-            let now = state.timestamp_now();
-            let key = state.signing_key();
-            let request = sign::sign(request, &format!("{url}/users/{username}#main-key"), key, now);
-            tracing::info!("request: {:?}", request);
-            let response = match state.request(request).await {
-                Ok(response) => response,
-                Err(e) => {
-                    tracing::warn!("failed to fetch by: {:?}", e);
-                    return ProcessQueueResult::Finished;
-                }
-            };
-            if !response.status().is_success() {
-                tracing::warn!("failed to post: {:?}", response);
-                let response = response
-                    .into_body()
-                    .into_data_stream()
-                    .try_fold(Vec::new(), |mut acc, bytes| {
-                        acc.extend_from_slice(&bytes);
-                        future::ready(Ok(acc))
-                    })
-                    .await
-                    .unwrap();
-                tracing::warn!("response: {:?}", String::from_utf8_lossy(&response));
-            }
-            return ProcessQueueResult::Finished;
-        }
-        QueueData::Unfollow { username, id, actor, object } => {
-            state.remove_follower(&username, id).await;
-            if let (Some(actor), Some(object)) = (actor, object) {
-                let url = state.url();
-                if object == format!("{url}/users/{username}") {
-                    state.remove_follower_by_actor(&username, actor).await;
-                }
-            }
-            return ProcessQueueResult::Finished;
-        }
     }
 
     #[derive(Debug, Deserialize)]
@@ -463,6 +474,15 @@ where
             object: String,
             #[serde(default)]
             content: String,
+        },
+        Follow {
+            id: String,
+            actor: String,
+            object: String,
+        },
+        Undo {
+            actor: String,
+            object: Box<ResponseBody>,
         },
     }
     #[derive(Debug, Deserialize)]

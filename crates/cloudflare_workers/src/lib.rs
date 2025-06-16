@@ -155,6 +155,11 @@ impl ArticleProvider for WorkerState {
     }
 
     #[worker::send]
+    async fn remove_reaction_by(&self, _slug: &str, _actor: &str) {
+        todo!()
+    }
+
+    #[worker::send]
     async fn add_reaction(&self, slug: &str, reaction: ArticleNewReaction) {
         // Serialize the reaction and store it in R2 bucket
         let json = match serde_json::to_string(&reaction) {
@@ -334,7 +339,7 @@ impl UserProvider for WorkerState {
     }
 
     #[worker::send]
-    async fn add_follower(&self, username: &str, follower_id: String, inbox: String, event_id: String) {
+    async fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) {
         match worker::query!(
             self.db.as_ref(),
             "INSERT INTO followers (username, follower_id, inbox, event_id) VALUES (?1, ?2, ?3, ?4)",
@@ -355,7 +360,7 @@ impl UserProvider for WorkerState {
     }
 
     #[worker::send]
-    async fn remove_follower(&self, username: &str, event_id: String) {
+    async fn remove_follower(&self, username: &str, event_id: &str) {
         match worker::query!(
             self.db.as_ref(),
             "DELETE FROM followers WHERE username = ?1 AND event_id = ?2",
@@ -374,7 +379,7 @@ impl UserProvider for WorkerState {
     }
 
     #[worker::send]
-    async fn remove_follower_by_actor(&self, username: &str, actor: String) {
+    async fn remove_follower_by_actor(&self, username: &str, actor: &str) {
         match worker::query!(
             self.db.as_ref(),
             "DELETE FROM followers WHERE username = ?1 AND follower_id = ?2",
