@@ -31,6 +31,9 @@ runs:
         cp -R "${{ github.action_path }}/." ./.github/self
       shell: bash
 
+    - run: echo ${{ github.action_path }}
+      shell: bash
+
     - uses: ./.github/self/.github/workflows/deploy/cloudflare_workers
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:

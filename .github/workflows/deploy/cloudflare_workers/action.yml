@@ -23,36 +23,49 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - run: echo ${{ github.action_path }}
+      shell: bash
     - run: pwd
+      shell: bash
     - run: ls -a
+      shell: bash
     - uses: actions/checkout@v4
+      shell: bash
     - run: ls -a
+      shell: bash
 
     - name: Copy articles
+      shell: bash
       run: |
         mkdir -p src/pages/raw__/articles
         cp -r "${{ inputs.article_data_path }}"/* src/pages/raw__/articles/
 
     - name: Copy users
+      shell: bash
       run: |
         mkdir -p src/pages/raw__/users
         cp -r "${{ inputs.user_data_path }}"/* src/pages/raw__/users/
 
     - name: Enable corepack
+      shell: bash
       run: corepack enable
 
     - uses: actions/setup-node@v4
+      shell: bash
       with:
         node-version: '22'
         cache: 'pnpm'
 
     - name: Install Node dependencies
+      shell: bash
       run: pnpm install
 
     - name: Build site
+      shell: bash
       run: pnpm run build
 
     - name: Merge prebuilt and new build artifacts
+      shell: bash
       run: |
         rm -rf crates/cloudflare_workers/public
         mkdir -p crates/cloudflare_workers/public
@@ -60,6 +73,7 @@ runs:
         rsync -a dist/ crates/cloudflare_workers/public/
 
     - name: Configure wrangler
+      shell: bash
       run: |
         sed -i "s/^name = .*/name = '${{ inputs.wrangler_name }}'/" crates/cloudflare_workers/wrangler.toml
         if grep -q '^account_id' crates/cloudflare_workers/wrangler.toml; then
