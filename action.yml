@@ -26,7 +26,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ${{ github.action_path }}/.github/workflows/deploy/cloudflare_workers.yml
+    - uses: ${GITHUB_ACTION_PATH}/.github/workflows/deploy/cloudflare_workers.yml
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:
         article_data_path: ${{ inputs.article_data_path }}
