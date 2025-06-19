@@ -31,6 +31,12 @@ runs:
         repository: ${{ github.action_repository }}
         path: ./.github/self
 
+    - run: ls -a
+      shell: bash
+
+    - run: tree -a
+      shell: bash
+
     - uses: ./.github/self/.github/workflows/deploy/cloudflare_workers
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:
