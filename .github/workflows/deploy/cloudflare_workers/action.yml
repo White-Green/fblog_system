@@ -29,10 +29,6 @@ runs:
       shell: bash
     - run: ls -a
       shell: bash
-    - uses: actions/checkout@v4
-      shell: bash
-    - run: ls -a
-      shell: bash
 
     - name: Copy articles
       shell: bash
@@ -51,7 +47,6 @@ runs:
       run: corepack enable
 
     - uses: actions/setup-node@v4
-      shell: bash
       with:
         node-version: '22'
         cache: 'pnpm'
