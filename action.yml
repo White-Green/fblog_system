@@ -1,0 +1,37 @@
+name: Deploy
+
+inputs:
+  target:
+    description: "Deployment target"
+    required: true
+  article_data_path:
+    description: "Path to article data"
+    required: true
+  user_data_path:
+    description: "Path to user data"
+    required: true
+  build_data_path:
+    description: "Path to prebuilt site data"
+    required: true
+  wrangler_account_id:
+    description: "Cloudflare account id"
+    required: true
+  wrangler_name:
+    description: "Cloudflare worker name"
+    required: true
+  wrangler_url:
+    description: "Base URL"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/workflows/deploy/cloudflare_workers.yml
+      if: ${{ inputs.target == 'cloudflare_workers' }}
+      with:
+        article_data_path: ${{ inputs.article_data_path }}
+        user_data_path: ${{ inputs.user_data_path }}
+        build_data_path: ${{ inputs.build_data_path }}
+        wrangler_account_id: ${{ inputs.wrangler_account_id }}
+        wrangler_name: ${{ inputs.wrangler_name }}
+        wrangler_url: ${{ inputs.wrangler_url }}
