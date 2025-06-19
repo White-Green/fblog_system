@@ -7,6 +7,7 @@
 !/test_config
 !/tests
 !/.gitignore
+!/action.yml
 !/astro.config.mjs
 !/biome.json
 !/Cargo.lock
@@ -14,4 +15,6 @@
 !/package.json
 !/pnpm-lock.yaml
 !/rustfmt.toml
+!/snapshot.sh
+!/snapshot_diff.sh
 !/tsconfig.json

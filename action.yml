@@ -1,0 +1,52 @@
+name: Deploy
+
+inputs:
+  target:
+    description: "Deployment target"
+    required: true
+  article_data_path:
+    description: "Path to article data"
+    required: true
+  user_data_path:
+    description: "Path to user data"
+    required: true
+  build_data_path:
+    description: "Path to prebuilt site data"
+    required: true
+  project_name:
+    description: "Project Name"
+    required: true
+  site_url:
+    description: "Base URL"
+    required: true
+  public_key_path:
+    description: "Path to public key pem"
+    required: true
+
+  cloudflare_account_id:
+    description: "Cloudflare account id"
+    required: true
+  cloudflare_api_token:
+    description: "Cloudflare API Token"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        mkdir -p ./.github/__tmp/fblog_system
+        cp -R "${{ github.action_path }}/.github/workflows/deploy" ./.github/__tmp/fblog_system
+      shell: bash
+
+    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers
+      if: ${{ inputs.target == 'cloudflare_workers' }}
+      with:
+        working_dir: ${{ github.action_path }}
+        article_data_path: ${{ inputs.article_data_path }}
+        user_data_path: ${{ inputs.user_data_path }}
+        build_data_path: ${{ inputs.build_data_path }}
+        project_name: ${{ inputs.project_name }}
+        site_url: ${{ inputs.site_url }}
+        public_key_path: ${{ inputs.public_key_path }}
+        cloudflare_account_id: ${{ inputs.cloudflare_account_id }}
+        cloudflare_api_token: ${{ inputs.cloudflare_api_token }}

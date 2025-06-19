@@ -146,7 +146,7 @@ fn main() {
 
         let mut new_article_ap = serde_json::from_str::<serde_json::Value>(include_str!("../../dist/raw__/articles/ap/markdown-style-guide.json")).unwrap();
         new_article_ap["content"] = serde_json::Value::String("Updated content".to_owned());
-        new_article_ap["updated"] = serde_json::Value::String("2025-06-19T00:00:00.000Z".to_owned());
+        new_article_ap["updated"] = serde_json::Value::String("9999-12-31T23:59:59.999Z".to_owned());
         in_memory
             .replace_article_ap("markdown-style-guide", serde_json::to_string(&new_article_ap).unwrap())
             .await;

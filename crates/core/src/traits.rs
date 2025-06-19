@@ -65,6 +65,7 @@ pub trait UserProvider {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "event_type")]
 pub enum QueueData {
     Inbox {
         username: String,
