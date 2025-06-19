@@ -26,9 +26,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - run: echo "ACTION_REPO=${{ github.action_repository }}" >> $GITHUB_ENV
+      shell: bash
+
     - uses: actions/checkout@v4
       with:
-        repository: ${{ github.action_repository }}
+        repository: ${{ env.ACTION_REPO }}
         path: ./.github/self
 
     - run: ls -a
