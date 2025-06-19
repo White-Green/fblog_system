@@ -26,7 +26,12 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ${{ github.action_path }}/.github/workflows/deploy/cloudflare_workers
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ github.action_repository }}
+        path: ./.github/self
+
+    - uses: ./.github/self/.github/workflows/deploy/cloudflare_workers
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:
         article_data_path: ${{ inputs.article_data_path }}
