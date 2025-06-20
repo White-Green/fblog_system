@@ -27,16 +27,14 @@ runs:
   using: "composite"
   steps:
     - run: |
-        mkdir -p ./.github/self
-        cp -R "${{ github.action_path }}/." ./.github/self
+        mkdir -p ./.github/__tmp/fblog_system
+        cp -R "${{ github.action_path }}/.github/workflows/deploy" ./.github/__tmp/fblog_system
       shell: bash
 
-    - run: echo ${{ github.action_path }}
-      shell: bash
-
-    - uses: ./.github/self/.github/workflows/deploy/cloudflare_workers
+    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:
+        working_dir: ${{ github.action_path }}
         article_data_path: ${{ inputs.article_data_path }}
         user_data_path: ${{ inputs.user_data_path }}
         build_data_path: ${{ inputs.build_data_path }}
