@@ -111,7 +111,7 @@ runs:
           DB_NAME="${{ inputs.project_name }}-blog-db"
           DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r --arg DB "$DB_NAME" '.[] | select(.name == $DB) | .uuid')
           echo $DATABASE_ID
-          if [ -z "$DATABASE_ID" ]; then echo "Create D1 Database '${DB_NAME}'"; pnpm exec wrangler d1 create "${DB_NAME}" --json; DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r --arg DB "$DB_NAME" '.[] | select(.name == $DB) | .uuid'); fi
+          if [ -z "$DATABASE_ID" ]; then echo "Create D1 Database '${DB_NAME}'"; pnpm exec wrangler d1 create "${DB_NAME}"; DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r --arg DB "$DB_NAME" '.[] | select(.name == $DB) | .uuid'); fi
 
           if [ -z "$DATABASE_ID" ]; then echo "ERROR: Cannot find D1 Database ${DB_NAME}"; exit 1; fi
           PROJECT_NAME="${{ inputs.project_name }}" SITE_URL="${{ inputs.site_url }}" D1_DATABASE_ID=$DATABASE_ID envsubst < wrangler.template.toml > wrangler.toml
