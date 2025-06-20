@@ -29,8 +29,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: pwd
-      working-directory: ${{ inputs.working_dir }}
+    - run: sudo apt-get install gettext-base
       shell: bash
 
     - name: Copy articles
