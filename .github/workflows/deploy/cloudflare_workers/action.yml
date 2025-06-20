@@ -34,15 +34,15 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
-        mkdir -p articles
-        cp -r ${{ inputs.article_data_path }}/* articles/
+        mkdir -p contents/articles
+        cp -r ${{ inputs.article_data_path }}/* contents/articles/
 
     - name: Copy users
       shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
-        mkdir -p users
-        cp -r ${{ inputs.user_data_path }}/* users/
+        mkdir -p contents/users
+        cp -r ${{ inputs.user_data_path }}/* contents/users/
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
