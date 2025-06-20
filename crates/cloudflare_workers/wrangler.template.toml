@@ -1,0 +1,33 @@
+name = "${PROJECT_NAME}"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-06-07"
+
+[build]
+command = "cargo install worker-build && worker-build --release"
+
+[assets]
+directory = "./public/"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = 'R2_BUCKET'
+bucket_name = '${PROJECT_NAME}-blog-bucket'
+
+[vars]
+URL = "${SITE_URL}"
+
+[[d1_databases]]
+binding = "BLOG_DB"
+database_name = "${PROJECT_NAME}-blog-db"
+
+[[queues.producers]]
+binding = "JOB_QUEUE"
+queue = "${PROJECT_NAME}-job-queue"
+
+[[queues.consumers]]
+queue = "${PROJECT_NAME}-job-queue"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[observability.logs]
+enabled = true

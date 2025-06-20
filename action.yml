@@ -13,6 +13,9 @@ inputs:
   build_data_path:
     description: "Path to prebuilt site data"
     required: true
+  project_name:
+    description: "Project Name"
+    required: true
   site_url:
     description: "Base URL"
     required: true
@@ -39,6 +42,7 @@ runs:
         article_data_path: ${{ inputs.article_data_path }}
         user_data_path: ${{ inputs.user_data_path }}
         build_data_path: ${{ inputs.build_data_path }}
+        project_name: ${{ inputs.project_name }}
         site_url: ${{ inputs.site_url }}
         cloudflare_account_id: ${{ inputs.cloudflare_account_id }}
         cloudflare_api_token: ${{ inputs.cloudflare_api_token }}

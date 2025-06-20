@@ -504,7 +504,7 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
-    let db = std::sync::Arc::new(env.d1("FOLLOWERS_DB")?);
+    let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
     init_db(&db).await;
     let state = WorkerState {
         env: env.clone(),
@@ -521,7 +521,7 @@ async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Con
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
-    let db = std::sync::Arc::new(env.d1("FOLLOWERS_DB")?);
+    let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
     init_db(&db).await;
     let state = WorkerState {
         env: env.clone(),

@@ -13,6 +13,9 @@ inputs:
   build_data_path:
     required: true
     type: string
+  project_name:
+    required: true
+    type: string
   site_url:
     required: true
     type: string
@@ -97,6 +100,10 @@ runs:
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: mv dist crates/cloudflare_workers/public
+
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
+      run: PROJECT_NAME="${{ inputs.project_name }}" SITE_URL="${{ inputs.site_url }}" envsubt < crates/cloudflare_workers/wrangler.template.toml > crates/cloudflare_workers/wrangler.toml
 
     - uses: dtolnay/rust-toolchain@stable
       with:
