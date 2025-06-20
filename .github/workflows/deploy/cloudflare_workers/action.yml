@@ -50,7 +50,6 @@ runs:
       run: corepack enable
 
     - uses: actions/setup-node@v4
-      shell: bash
       with:
         node-version: '22'
         cache: 'pnpm'
