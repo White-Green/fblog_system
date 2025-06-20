@@ -19,6 +19,7 @@ URL = "${SITE_URL}"
 [[d1_databases]]
 binding = "BLOG_DB"
 database_name = "${PROJECT_NAME}-blog-db"
+database_id = "${D1_DATABASE_ID}"
 
 [[queues.producers]]
 binding = "JOB_QUEUE"
