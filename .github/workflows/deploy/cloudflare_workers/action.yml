@@ -107,11 +107,11 @@ runs:
         export CLOUDFLARE_API_TOKEN="${{ inputs.cloudflare_api_token }}"
         
         DB_NAME="${{ inputs.project_name }}-blog-db"
-        wrangler d1 list --json
-        DATABASE_ID=$(wrangler d1 list --json | jq -r '.[] | select(.name == "${DB_NAME}") | .uuid')
+        pnpm exec wrangler d1 list --json
+        DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r '.[] | select(.name == "${DB_NAME}") | .uuid')
         if [ -z "$DATABASE_ID" ]; then
           echo "Create D1 Database '${DB_NAME}'"
-          wrangler d1 create "${DB_NAME}" --json
+          pnpm exec wrangler d1 create "${DB_NAME}" --json
           DATABASE_ID=$(wrangler d1 list --json | jq -r '.[] | select(.name == "${DB_NAME}") | .uuid')
         fi
 
