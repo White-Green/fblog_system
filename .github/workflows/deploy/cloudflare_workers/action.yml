@@ -35,14 +35,14 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p src/pages/raw__/articles
-        cp -r "${{ inputs.article_data_path }}"/* src/pages/raw__/articles/
+        cp -r "${{ inputs.article_data_path }}/*" articles/
 
     - name: Copy users
       shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p src/pages/raw__/users
-        cp -r "${{ inputs.user_data_path }}"/* src/pages/raw__/users/
+        cp -r "${{ inputs.user_data_path }}/*" users/
 
     - name: Enable corepack
       shell: bash
