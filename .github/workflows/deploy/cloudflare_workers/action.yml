@@ -56,7 +56,7 @@ runs:
         mkdir -p public/raw__/articles
         mv public/articles public/raw__/articles/ap
         cd public/raw__/articles/ap
-        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do; mv "$file" "${file%/*}.html"; done
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
@@ -64,7 +64,7 @@ runs:
         mkdir -p public/raw__/users
         mv public/users public/raw__/users/ap
         cd public/raw__/users/ap
-        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do; mv "$file" "${file%/*}.html"; done
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
