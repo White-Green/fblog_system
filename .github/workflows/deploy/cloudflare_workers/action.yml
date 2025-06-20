@@ -68,6 +68,10 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: pnpm run build
 
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
+      run: tree -a dist
+
     - name: Merge prebuilt and new build artifacts
       shell: bash
       working-directory: ${{ inputs.working_dir }}
