@@ -46,6 +46,23 @@ runs:
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
+      run: |
+        cp -r ${{ inputs.build_data_path }}/* public/
+
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
+      run: |
+        mkdir -p public/raw__/articles
+        mmv 'public/articles/*/index.html' 'public/raw__/articles/ap/#1.html'
+
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
+      run: |
+        mkdir -p public/raw__/users
+        mmv 'public/users/*/index.html' 'public/raw__/users/ap/#1.html'
+
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
       run: tree -a
 
     - name: Enable corepack
