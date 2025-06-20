@@ -13,14 +13,15 @@ inputs:
   build_data_path:
     description: "Path to prebuilt site data"
     required: true
-  wrangler_account_id:
+  site_url:
+    description: "Base URL"
+    required: true
+
+  cloudflare_account_id:
     description: "Cloudflare account id"
     required: true
-  wrangler_name:
-    description: "Cloudflare worker name"
-    required: true
-  wrangler_url:
-    description: "Base URL"
+  cloudflare_api_token:
+    description: "Cloudflare API Token"
     required: true
 
 runs:
@@ -38,6 +39,6 @@ runs:
         article_data_path: ${{ inputs.article_data_path }}
         user_data_path: ${{ inputs.user_data_path }}
         build_data_path: ${{ inputs.build_data_path }}
-        wrangler_account_id: ${{ inputs.wrangler_account_id }}
-        wrangler_name: ${{ inputs.wrangler_name }}
-        wrangler_url: ${{ inputs.wrangler_url }}
+        site_url: ${{ inputs.site_url }}
+        cloudflare_account_id: ${{ inputs.cloudflare_account_id }}
+        cloudflare_api_token: ${{ inputs.cloudflare_api_token }}

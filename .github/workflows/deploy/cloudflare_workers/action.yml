@@ -13,13 +13,13 @@ inputs:
   build_data_path:
     required: true
     type: string
-  wrangler_account_id:
+  site_url:
     required: true
     type: string
-  wrangler_name:
+  cloudflare_account_id:
     required: true
     type: string
-  wrangler_url:
+  cloudflare_api_token:
     required: true
     type: string
 
@@ -94,14 +94,9 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: tree -a dist
 
-    - name: Merge prebuilt and new build artifacts
-      shell: bash
+    - shell: bash
       working-directory: ${{ inputs.working_dir }}
-      run: |
-        rm -rf crates/cloudflare_workers/public
-        mkdir -p crates/cloudflare_workers/public
-        rsync -a "${{ inputs.build_data_path }}/" crates/cloudflare_workers/public/
-        rsync -a dist/ crates/cloudflare_workers/public/
+      run: mv dist crates/cloudflare_workers/public
 
     - uses: dtolnay/rust-toolchain@stable
       with:
@@ -110,5 +105,7 @@ runs:
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
       with:
-        workingDirectory: crates/cloudflare_workers
+        workingDirectory: ${{ inputs.working_dir }}/crates/cloudflare_workers
+        accountId: ${{ inputs.cloudflare_account_id }}
+        apiToken: ${{ inputs.cloudflare_api_token }}
         command: deploy
