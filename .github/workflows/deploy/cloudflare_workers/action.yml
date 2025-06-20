@@ -88,7 +88,7 @@ runs:
     - name: Build site
       shell: bash
       working-directory: ${{ inputs.working_dir }}
-      run: pnpm run build
+      run: PUBLIC_KEY_FILE=test_config/public-key-for-test.pem pnpm run build
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
