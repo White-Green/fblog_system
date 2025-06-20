@@ -29,9 +29,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: sudo apt-get install gettext-base
-      shell: bash
-
     - name: Copy articles
       shell: bash
       working-directory: ${{ inputs.working_dir }}
@@ -102,7 +99,7 @@ runs:
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
-      run: PROJECT_NAME="${{ inputs.project_name }}" SITE_URL="${{ inputs.site_url }}" envsubt < crates/cloudflare_workers/wrangler.template.toml > crates/cloudflare_workers/wrangler.toml
+      run: PROJECT_NAME="${{ inputs.project_name }}" SITE_URL="${{ inputs.site_url }}" envsubst < crates/cloudflare_workers/wrangler.template.toml > crates/cloudflare_workers/wrangler.toml
 
     - uses: dtolnay/rust-toolchain@stable
       with:
