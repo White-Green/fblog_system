@@ -54,13 +54,17 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p public/raw__/articles
-        mmv 'public/articles/*/index.html' 'public/raw__/articles/ap/#1.html'
+        mv public/articles public/raw__/articles/ap
+        cd public/raw__/articles/ap
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do; mv "$file" "${file%/*}.html"; done
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p public/raw__/users
-        mmv 'public/users/*/index.html' 'public/raw__/users/ap/#1.html'
+        mv public/users public/raw__/users/ap
+        cd public/raw__/users/ap
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do; mv "$file" "${file%/*}.html"; done
 
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
