@@ -44,6 +44,10 @@ runs:
         mkdir -p users
         cp -r ${{ inputs.user_data_path }}/* users/
 
+    - shell: bash
+      working-directory: ${{ inputs.working_dir }}
+      run: tree -a
+
     - name: Enable corepack
       shell: bash
       working-directory: ${{ inputs.working_dir }}
