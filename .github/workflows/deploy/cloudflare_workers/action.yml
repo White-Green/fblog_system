@@ -109,13 +109,13 @@ runs:
         apiToken: ${{ inputs.cloudflare_api_token }}
         preCommands: |
           DB_NAME="${{ inputs.project_name }}-blog-db"
-          DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r '.[] | select(.name == "${DB_NAME}") | .uuid')
+          DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r --arg DB "$DB_NAME" '.[] | select(.name == $DB) | .uuid')
           echo $DATABASE_ID
           if [ -z "$DATABASE_ID" ]
           then
             echo "Create D1 Database '${DB_NAME}'"
             pnpm exec wrangler d1 create "${DB_NAME}" --json
-            DATABASE_ID=$(wrangler d1 list --json | jq -r '.[] | select(.name == "${DB_NAME}") | .uuid')
+            DATABASE_ID=$(pnpm exec wrangler d1 list --json | jq -r --arg DB "$DB_NAME" '.[] | select(.name == $DB) | .uuid')
           fi
 
           if [ -z "$DATABASE_ID" ]
