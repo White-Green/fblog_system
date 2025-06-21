@@ -87,7 +87,7 @@ runs:
     - shell: bash
       id: normalized_hostname
       run: |
-        node -p 'const i="https://blog.test/";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' > $GITHUB_OUTPUT
+        node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' > $GITHUB_OUTPUT
 
     - name: Build site
       shell: bash
