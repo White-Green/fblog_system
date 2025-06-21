@@ -120,12 +120,14 @@ runs:
         VER=$(curl https://index.crates.io/wo/rk/worker-build | jq -r 'select(.yanked == false) | .vers' | sort -V | tail -n 1)
         echo "worker_build=$VER" >> $GITHUB_OUTPUT
 
-    - uses: actions/cache@v4
+    - id: worker_build_binary_cache
+      uses: actions/cache@v4
       with:
         key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
         path: ~/.cargo/bin/worker-build
 
     - shell: bash
+      if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
       run: cargo install worker-build
 
     - name: Compute build-cache key
