@@ -118,7 +118,7 @@ runs:
       shell: bash
       run: |
         VER=$(curl -s https://crates.io/api/v1/crates/worker-build | jq -r '.crate.max_stable_version')
-        echo "worker-build=$VER" > $GITHUB_OUTPUT
+        echo "worker-build=$VER" >> $GITHUB_OUTPUT
 
     - uses: actions/cache@v4
       with:
