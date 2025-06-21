@@ -19,6 +19,9 @@ inputs:
   site_url:
     description: "Base URL"
     required: true
+  public_key_path:
+    description: "Path to public key pem"
+    required: true
 
   cloudflare_account_id:
     description: "Cloudflare account id"
@@ -44,5 +47,6 @@ runs:
         build_data_path: ${{ inputs.build_data_path }}
         project_name: ${{ inputs.project_name }}
         site_url: ${{ inputs.site_url }}
+        public_key_path: ${{ inputs.public_key_path }}
         cloudflare_account_id: ${{ inputs.cloudflare_account_id }}
         cloudflare_api_token: ${{ inputs.cloudflare_api_token }}
