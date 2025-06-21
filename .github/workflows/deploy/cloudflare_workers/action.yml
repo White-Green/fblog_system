@@ -10,6 +10,9 @@ inputs:
   user_data_path:
     required: true
     type: string
+  article_snapshot_path:
+    required: true
+    type: string
   build_data_path:
     required: true
     type: string
@@ -103,7 +106,7 @@ runs:
     - name: Build site
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: PUBLIC_KEY_FILE=${{ inputs.public_key_path }} pnpm run build
+      run: PUBLIC_KEY_FILE= pnpm run build
 
     - shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
@@ -150,6 +153,14 @@ runs:
       run: |
         mv /tmp/fblog_system_build_cache ./target || true
 
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        SNAPSHOT_PATH=$([ -f "${{ inputs.article_snapshot_path }}" ] && echo "${{ inputs.article_snapshot_path }}" || echo "/dev/null")
+        ./snapshot.sh dist/raw__/articles/ap > snapshot
+        ./snapshot_diff.sh $SNAPSHOT_PATH ./snapshot > events.jsonl
+        mv --force ./snapshot ${{ inputs.article_snapshot_path }}
+
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
       with:
@@ -160,6 +171,8 @@ runs:
           ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
           cat wrangler.toml
         command: deploy
+        postCommands: |
+          ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
 
     - shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
