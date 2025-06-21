@@ -3,7 +3,7 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2025-06-07"
 
 workers_dev = false
-route = "${SITE_URL}/*"
+route = "${HOST_NAME}"
 
 [build]
 command = "cargo install worker-build && worker-build --release"
@@ -17,7 +17,7 @@ binding = 'R2_BUCKET'
 bucket_name = '${PROJECT_NAME}-blog-bucket'
 
 [vars]
-URL = "${SITE_URL}"
+URL = "https://${HOST_NAME}"
 
 [[d1_databases]]
 binding = "BLOG_DB"

@@ -84,6 +84,11 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: pnpm install
 
+    - shell: bash
+      id: normalized_hostname
+      run: |
+        node -p 'const i="https://blog.test/";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' > $GITHUB_OUTPUT
+
     - name: Build site
       shell: bash
       working-directory: ${{ inputs.working_dir }}
@@ -108,6 +113,6 @@ runs:
         accountId: ${{ inputs.cloudflare_account_id }}
         apiToken: ${{ inputs.cloudflare_api_token }}
         preCommands: |
-          ./setup_resources.sh "${{ inputs.project_name }}" "${{ inputs.site_url }}"
+          ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized_hostname.outputs.host_name }}"
           cat wrangler.toml
         command: deploy

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_NAME="$1"
-SITE_URL="$2"
+HOST_NAME="$2"
 DB_NAME="$PROJECT_NAME-blog-db"
 BUCKET_NAME="$PROJECT_NAME-blog-bucket"
 QUEUE_NAME="$PROJECT_NAME-job-queue"
@@ -35,6 +35,6 @@ else
   pnpm exec wrangler queues create "$QUEUE_NAME"
 fi
 
-PROJECT_NAME="$PROJECT_NAME" SITE_URL="$SITE_URL" D1_DATABASE_ID=$DATABASE_ID envsubst < wrangler.template.toml > wrangler.toml
+PROJECT_NAME="$PROJECT_NAME" HOST_NAME="$HOST_NAME" D1_DATABASE_ID=$DATABASE_ID envsubst < wrangler.template.toml > wrangler.toml
 
 echo "Resources setup completed successfully!"
