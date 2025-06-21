@@ -173,7 +173,7 @@ runs:
           cat wrangler.toml
         command: deploy
         postCommands: |
-          ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
+          CF_ACCOUNT_ID=${{ inputs.cloudflare_account_id }} CF_API_TOKEN=${{ inputs.cloudflare_api_token }} ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
 
     - shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
