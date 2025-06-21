@@ -3,7 +3,7 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2025-06-07"
 
 workers_dev = false
-route = "${HOST_NAME}"
+route = "${HOST_NAME}/*"
 
 [build]
 command = "worker-build --release"
