@@ -138,7 +138,7 @@ runs:
     - shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
-        mv /tmp/fblog_system_build_cache ./target
+        mv /tmp/fblog_system_build_cache ./target || true
 
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
