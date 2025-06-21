@@ -157,3 +157,4 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         ls -a
+        ls -a target
