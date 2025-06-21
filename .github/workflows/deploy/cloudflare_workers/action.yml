@@ -52,7 +52,7 @@ runs:
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
-        mkdir -p public/raw__/articles
+        mkdir -p public/raw__/articles/html
         shopt -s extglob
         mv public/articles/!(index.html) public/raw__/articles/html
         cd public/raw__/articles/html
@@ -61,7 +61,7 @@ runs:
     - shell: bash
       working-directory: ${{ inputs.working_dir }}
       run: |
-        mkdir -p public/raw__/users
+        mkdir -p public/raw__/users/html
         shopt -s extglob
         mv public/users/!(index.html) public/raw__/users/html
         cd public/raw__/users/html
