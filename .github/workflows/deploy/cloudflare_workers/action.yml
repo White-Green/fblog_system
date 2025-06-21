@@ -29,28 +29,35 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - id: normalized
+      shell: bash
+      run: |
+        WORKING_DIR="${{ inputs.working_dir }}"
+        echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
+        node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' >> $GITHUB_OUTPUT
+
     - name: Copy articles
       shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         mkdir -p contents/articles
         cp -r ${{ inputs.article_data_path }}/* contents/articles/
 
     - name: Copy users
       shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         mkdir -p contents/users
         cp -r ${{ inputs.user_data_path }}/* contents/users/
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         mkdir public
         cp -r ${{ inputs.build_data_path }}/* public/
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         mkdir -p public/raw__/articles/html
         mkdir -p public/articles
@@ -61,7 +68,7 @@ runs:
         find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         mkdir -p public/raw__/users/html
         mkdir -p public/users
@@ -72,12 +79,12 @@ runs:
         find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: tree -a
 
     - name: Enable corepack
       shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: corepack enable
 
     - uses: actions/setup-node@v4
@@ -87,38 +94,52 @@ runs:
 
     - name: Install Node dependencies
       shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: pnpm install
-
-    - shell: bash
-      id: normalized_hostname
-      run: |
-        node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' > $GITHUB_OUTPUT
 
     - name: Build site
       shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: PUBLIC_KEY_FILE=test_config/public-key-for-test.pem pnpm run build
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: tree -a dist
 
     - shell: bash
-      working-directory: ${{ inputs.working_dir }}
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv dist crates/cloudflare_workers/public
 
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
 
+    - id: crate_version
+      shell: bash
+      run: |
+        VER=$(curl -s https://crates.io/api/v1/crates/worker-build | jq -r '.crate.max_stable_version')
+        echo "worker-build=$VER" > $GITHUB_OUTPUT
+
+    - uses: actions/cache@v4
+      with:
+        key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker-build }}
+        path: ~/.cargo/bin/worker-build
+
+    - shell: bash
+      run: cargo install worker-build
+
+    - uses: actions/cache@v4
+      with:
+        key: fblog_system-build_cache-${{ hashFiles(format('{0}/Cargo.lock', steps.normalized.outputs.working_dir)) }}
+        path: ${{ steps.normalized.outputs.working_dir }}/target
+
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
       with:
-        workingDirectory: ${{ inputs.working_dir }}/crates/cloudflare_workers
+        workingDirectory: ${{ steps.normalized.outputs.working_dir }}/crates/cloudflare_workers
         accountId: ${{ inputs.cloudflare_account_id }}
         apiToken: ${{ inputs.cloudflare_api_token }}
         preCommands: |
-          ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized_hostname.outputs.host_name }}"
+          ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
           cat wrangler.toml
         command: deploy
