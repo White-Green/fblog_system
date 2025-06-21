@@ -107,5 +107,5 @@ runs:
         workingDirectory: ${{ inputs.working_dir }}/crates/cloudflare_workers
         accountId: ${{ inputs.cloudflare_account_id }}
         apiToken: ${{ inputs.cloudflare_api_token }}
-        preCommands: ./setup_resources.sh
+        preCommands: ./setup_resources.sh "${{ inputs.project_name }}" "${{ inputs.site_url }}"
         command: deploy
