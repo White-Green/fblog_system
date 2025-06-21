@@ -143,3 +143,8 @@ runs:
           ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
           cat wrangler.toml
         command: deploy
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        ls -a
