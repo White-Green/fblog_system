@@ -112,10 +112,6 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: tree -a dist
 
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: mv dist crates/cloudflare_workers/public
-
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
@@ -157,9 +153,14 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
         SNAPSHOT_PATH=$([ -f "${{ inputs.article_snapshot_path }}" ] && echo "${{ inputs.article_snapshot_path }}" || echo "/dev/null")
+        mkdir -p dist/raw__/articles/ap
         ./snapshot.sh dist/raw__/articles/ap > snapshot
         ./snapshot_diff.sh $SNAPSHOT_PATH ./snapshot > events.jsonl
         mv --force ./snapshot ${{ inputs.article_snapshot_path }}
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: mv dist crates/cloudflare_workers/public
 
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
