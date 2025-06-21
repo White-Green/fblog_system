@@ -118,19 +118,25 @@ runs:
       shell: bash
       run: |
         VER=$(curl -s https://crates.io/api/v1/crates/worker-build | jq -r '.crate.max_stable_version')
-        echo "worker-build=$VER" >> $GITHUB_OUTPUT
+        echo "worker_build=$VER" >> $GITHUB_OUTPUT
 
     - uses: actions/cache@v4
       with:
-        key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker-build }}
+        key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
         path: ~/.cargo/bin/worker-build
 
     - shell: bash
       run: cargo install worker-build
 
+    - name: Compute build-cache key
+      id: build_key
+      shell: bash
+      run: |
+        echo "path_to_lock=${{ steps.normalized.outputs.working_dir }}/Cargo.lock" >> "$GITHUB_OUTPUT"
+
     - uses: actions/cache@v4
       with:
-        key: fblog_system-build_cache-${{ hashFiles(format('{0}/Cargo.lock', steps.normalized.outputs.working_dir)) }}
+        key: fblog_system-build_cache-${{ hashFiles(steps.build_key.outputs.path_to_lock) }}
         path: ${{ steps.normalized.outputs.working_dir }}/target
 
     - name: Deploy to Cloudflare Workers
