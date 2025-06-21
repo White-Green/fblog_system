@@ -117,6 +117,7 @@ runs:
     - id: crate_version
       shell: bash
       run: |
+        curl -s https://crates.io/api/v1/crates/worker-build | jq -r '.crate.max_stable_version'
         VER=$(curl -s https://crates.io/api/v1/crates/worker-build | jq -r '.crate.max_stable_version')
         echo "worker_build=$VER" >> $GITHUB_OUTPUT
 
@@ -132,11 +133,11 @@ runs:
       id: build_key
       shell: bash
       run: |
-        echo "path_to_lock=${{ steps.normalized.outputs.working_dir }}/Cargo.lock" >> "$GITHUB_OUTPUT"
+        echo "cargo_lock_hash=$(sha256sum "${{ steps.normalized.outputs.working_dir }}/Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
     - uses: actions/cache@v4
       with:
-        key: fblog_system-build_cache-${{ hashFiles(steps.build_key.outputs.path_to_lock) }}
+        key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: ${{ steps.normalized.outputs.working_dir }}/target
 
     - name: Deploy to Cloudflare Workers
