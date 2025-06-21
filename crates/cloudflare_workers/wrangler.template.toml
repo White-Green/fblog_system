@@ -3,6 +3,7 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2025-06-07"
 
 workers_dev = false
+keep_vars = true
 route = "${HOST_NAME}/*"
 
 [build]
