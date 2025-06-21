@@ -130,9 +130,16 @@ runs:
       if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
       run: cargo install worker-build
 
+    - name: Compute build-cache key
+      id: build_key
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      shell: bash
+      run: |
+        echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
     - uses: actions/cache@v4
       with:
-        key: fblog_system-build_cache-${{ hashFiles(format('{0}/Cargo.lock', steps.normalized.outputs.working_dir)) }}
+        key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: /tmp/fblog_system_build_cache
 
     - shell: bash
