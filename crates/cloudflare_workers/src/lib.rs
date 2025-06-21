@@ -447,45 +447,45 @@ impl HTTPClient for WorkerState {
 }
 
 async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS followers (\
-                username TEXT,\
-                follower_id TEXT,\
-                inbox TEXT,\
-                event_id TEXT\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize followers table");
-    }
-
-    // Create comments table
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS comments (\
-                slug TEXT PRIMARY KEY,\
-                count INTEGER DEFAULT 0\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize comments table");
-    }
-
-    // Create reactions table
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS reactions (\
-                slug TEXT PRIMARY KEY,\
-                count INTEGER DEFAULT 0\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize reactions table");
-    }
+    // if let Err(e) = db
+    //     .exec(
+    //         "CREATE TABLE IF NOT EXISTS followers (\
+    //             username TEXT,\
+    //             follower_id TEXT,\
+    //             inbox TEXT,\
+    //             event_id TEXT\
+    //         )",
+    //     )
+    //     .await
+    // {
+    //     tracing::error!(error = ?e, "failed to initialize followers table");
+    // }
+    //
+    // // Create comments table
+    // if let Err(e) = db
+    //     .exec(
+    //         "CREATE TABLE IF NOT EXISTS comments (\
+    //             slug TEXT PRIMARY KEY,\
+    //             count INTEGER DEFAULT 0\
+    //         )",
+    //     )
+    //     .await
+    // {
+    //     tracing::error!(error = ?e, "failed to initialize comments table");
+    // }
+    //
+    // // Create reactions table
+    // if let Err(e) = db
+    //     .exec(
+    //         "CREATE TABLE IF NOT EXISTS reactions (\
+    //             slug TEXT PRIMARY KEY,\
+    //             count INTEGER DEFAULT 0\
+    //         )",
+    //     )
+    //     .await
+    // {
+    //     tracing::error!(error = ?e, "failed to initialize reactions table");
+    // }
 }
 
 #[event(start)]
