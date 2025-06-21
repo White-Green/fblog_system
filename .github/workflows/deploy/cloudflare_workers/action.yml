@@ -53,8 +53,10 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p public/raw__/articles/html
+        mkdir -p public/articles
         shopt -s extglob
         mv public/articles/!(index.html) public/raw__/articles/html
+        mv public/articles/index.html public/articles/index.html || true
         cd public/raw__/articles/html
         find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
@@ -62,8 +64,10 @@ runs:
       working-directory: ${{ inputs.working_dir }}
       run: |
         mkdir -p public/raw__/users/html
+        mkdir -p public/users
         shopt -s extglob
         mv public/users/!(index.html) public/raw__/users/html
+        mv public/users/index.html public/users/index.html || true
         cd public/raw__/users/html
         find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
 
