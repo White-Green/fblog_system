@@ -500,63 +500,6 @@ impl HTTPClient for WorkerState {
     }
 }
 
-async fn init_db(db: &std::sync::Arc<worker::d1::D1Database>) {
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS followers (\
-                username TEXT,\
-                follower_id TEXT,\
-                inbox TEXT,\
-                event_id TEXT\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize followers table");
-    }
-
-    // Create comments table
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS comments (\
-                slug TEXT PRIMARY KEY,\
-                count INTEGER DEFAULT 0\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize comments table");
-    }
-
-    // Create reactions table
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS reactions (\
-                slug TEXT PRIMARY KEY,\
-                count INTEGER DEFAULT 0\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize reactions table");
-    }
-
-    // Create reaction_actors table
-    if let Err(e) = db
-        .exec(
-            "CREATE TABLE IF NOT EXISTS reaction_actors (\
-                slug TEXT,\
-                actor_id TEXT,\
-                reaction_id TEXT,\
-                PRIMARY KEY (slug, actor_id)\
-            )",
-        )
-        .await
-    {
-        tracing::error!(error = ?e, "failed to initialize reaction_actors table");
-    }
-}
-
 #[event(start)]
 fn start() {
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -573,8 +516,7 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
-    let db = std::sync::Arc::new(env.d1("FOLLOWERS_DB")?);
-    init_db(&db).await;
+    let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
     let state = WorkerState {
         env: env.clone(),
         signing_key,
@@ -590,8 +532,7 @@ async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Con
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
-    let db = std::sync::Arc::new(env.d1("FOLLOWERS_DB")?);
-    init_db(&db).await;
+    let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
     let state = WorkerState {
         env: env.clone(),
         signing_key,

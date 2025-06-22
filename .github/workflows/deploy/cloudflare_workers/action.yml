@@ -1,0 +1,183 @@
+name: Deploy Cloudflare Workers
+
+inputs:
+  working_dir:
+    required: true
+    type: string
+  article_data_path:
+    required: true
+    type: string
+  user_data_path:
+    required: true
+    type: string
+  build_data_path:
+    required: true
+    type: string
+  project_name:
+    required: true
+    type: string
+  site_url:
+    required: true
+    type: string
+  public_key_path:
+    required: true
+    type: string
+  cloudflare_account_id:
+    required: true
+    type: string
+  cloudflare_api_token:
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - id: normalized
+      shell: bash
+      run: |
+        WORKING_DIR="${{ inputs.working_dir }}"
+        echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
+        node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' >> $GITHUB_OUTPUT
+
+    - name: Copy articles
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mkdir -p contents/articles
+        cp -r ${{ inputs.article_data_path }}/* contents/articles/
+
+    - name: Copy users
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mkdir -p contents/users
+        cp -r ${{ inputs.user_data_path }}/* contents/users/
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mkdir public
+        cp -r ${{ inputs.build_data_path }}/* public/
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mkdir -p public/raw__/articles/html
+        mkdir -p public/articles
+        shopt -s extglob
+        mv public/articles/!(index.html) public/raw__/articles/html
+        mv public/articles/index.html public/articles/index.html || true
+        cd public/raw__/articles/html
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mkdir -p public/raw__/users/html
+        mkdir -p public/users
+        shopt -s extglob
+        mv public/users/!(index.html) public/raw__/users/html
+        mv public/users/index.html public/users/index.html || true
+        cd public/raw__/users/html
+        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: tree -a
+
+    - name: Enable corepack
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: corepack enable
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+
+    - name: Install Node dependencies
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: pnpm install
+
+    - name: Build site
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: PUBLIC_KEY_FILE=${{ inputs.public_key_path }} SITE_URL="https://${{ steps.normalized.outputs.host_name }}" pnpm run build
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: tree -a dist
+
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - id: crate_version
+      shell: bash
+      run: |
+        VER=$(curl https://index.crates.io/wo/rk/worker-build | jq -r 'select(.yanked == false) | .vers' | sort -V | tail -n 1)
+        echo "worker_build=$VER" >> $GITHUB_OUTPUT
+
+    - id: worker_build_binary_cache
+      uses: actions/cache@v4
+      with:
+        key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
+        path: ~/.cargo/bin/worker-build
+
+    - shell: bash
+      if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
+      run: cargo install worker-build
+
+    - name: Compute build-cache key
+      id: build_key
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      shell: bash
+      run: |
+        echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache@v4
+      with:
+        key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
+        path: /tmp/fblog_system_build_cache
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        mv /tmp/fblog_system_build_cache ./target || true
+
+    - name: Deploy to Cloudflare Workers
+      uses: cloudflare/wrangler-action@v3
+      with:
+        workingDirectory: ${{ steps.normalized.outputs.working_dir }}
+        accountId: ${{ inputs.cloudflare_account_id }}
+        apiToken: ${{ inputs.cloudflare_api_token }}
+        preCommands: ./crates/cloudflare_workers/update_snapshot.sh ${{ inputs.project_name }}
+        command: r2 object put --remote "${{ inputs.project_name }}-blog-bucket/article_snapshot.zst" -f ./article_snapshot_new.zst
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: cat events.jsonl
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: mv dist crates/cloudflare_workers/public
+
+    - name: Deploy to Cloudflare Workers
+      uses: cloudflare/wrangler-action@v3
+      with:
+        workingDirectory: ${{ steps.normalized.outputs.working_dir }}/crates/cloudflare_workers
+        accountId: ${{ inputs.cloudflare_account_id }}
+        apiToken: ${{ inputs.cloudflare_api_token }}
+        preCommands: |
+          ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
+        command: deploy
+        postCommands: |
+          CF_ACCOUNT_ID=${{ inputs.cloudflare_account_id }} CF_API_TOKEN=${{ inputs.cloudflare_api_token }} ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
+
+    - shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        ls -a
+        ls -a target
+        mv ./target /tmp/fblog_system_build_cache

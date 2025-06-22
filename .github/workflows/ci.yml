@@ -38,11 +38,24 @@ jobs:
         run: pnpm run build
         env:
           PUBLIC_KEY_FILE: test_config/public-key-for-test.pem
+          SITE_URL: https://blog.test
 
       - name: Run tests
         run: cargo test --workspace
         env:
           RUST_BACKTRACE: full
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker_stdout
+          path: docker_log.stdout
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker_stderr
+          path: docker_log.stderr
 
       - name: Stop caddy
         if: always()

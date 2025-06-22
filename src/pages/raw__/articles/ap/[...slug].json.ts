@@ -71,6 +71,7 @@ export async function GET({params, props, request}) {
         "attributedTo": `${baseUrl}/users/${authorId}`,
         "content": contentHtml,
         "published": article.data.pubDate,
+        "updated": new Date().toISOString(),
         "to": [
             "https://www.w3.org/ns/activitystreams#Public"
         ],
