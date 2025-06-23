@@ -23,6 +23,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
 use worker::{Context, Env, HttpRequest, MessageExt, event};
 
+#[cfg(feature = "test")]
+mod tests;
+
 struct SendStream<S> {
     inner: S,
 }
@@ -314,80 +317,6 @@ impl UserProvider for WorkerState {
     }
 
     #[worker::send]
-    async fn get_followers_html(&self, username: &str) -> Option<Body> {
-        let stmt = match worker::query!(self.db.as_ref(), "SELECT follower_id FROM followers WHERE username = ?1", &username) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to prepare get_followers_html");
-                return None;
-            }
-        };
-        let rows: Vec<Vec<String>> = match stmt.raw().await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to run get_followers_html");
-                return None;
-            }
-        };
-        let followers = rows.into_iter().filter_map(|mut r| r.pop()).collect::<Vec<_>>().join(", ");
-        Some(Body::from(followers))
-    }
-
-    #[worker::send]
-    async fn get_followers_len(&self, username: &str) -> usize {
-        let stmt = match worker::query!(self.db.as_ref(), "SELECT COUNT(*) as cnt FROM followers WHERE username = ?1", &username) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to prepare get_followers_len");
-                return 0;
-            }
-        };
-        match stmt.first::<u64>(Some("cnt")).await {
-            Ok(Some(n)) => n as usize,
-            Ok(None) => 0,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to execute get_followers_len");
-                0
-            }
-        }
-    }
-
-    #[worker::send]
-    async fn get_follower_ids_until(&self, username: &str, until: u64) -> (ArrayVec<String, 10>, u64) {
-        let len = self.get_followers_len(username).await as u64;
-        let until = len.min(until);
-        let offset = until.saturating_sub(10);
-        let stmt = match worker::query!(
-            self.db.as_ref(),
-            "SELECT follower_id FROM followers WHERE username = ?1 ORDER BY rowid LIMIT 10 OFFSET ?2",
-            &username,
-            &(offset as i64),
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to prepare get_follower_ids_until");
-                return (ArrayVec::new(), offset);
-            }
-        };
-        let rows: Vec<Vec<String>> = match stmt.raw().await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!(error = ?e, "failed to execute get_follower_ids_until");
-                return (ArrayVec::new(), offset);
-            }
-        };
-        let mut vec = ArrayVec::<String, 10>::new();
-        for mut row in rows {
-            if let Some(id) = row.pop() {
-                if vec.try_push(id).is_err() {
-                    break;
-                }
-            }
-        }
-        (vec, offset)
-    }
-
-    #[worker::send]
     async fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) {
         match worker::query!(
             self.db.as_ref(),
@@ -556,8 +485,7 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
 
     // Test endpoint
     if path == "/test" {
-        // Here you can add test-specific logic
-        // For now, just return a success message
+        tests::run_all_tests(state).await;
         return Ok(http::Response::builder()
             .status(StatusCode::OK)
             .body(Body::from("Test endpoint"))

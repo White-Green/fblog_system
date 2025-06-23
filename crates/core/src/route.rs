@@ -15,8 +15,6 @@ where
         .route("/users/:username", get(users::user_get::<E>))
         .route("/users/:username/inbox", post(users::inbox::user_inbox_post::<E>))
         .route("/users/:username/outbox", get(users::outbox::user_outbox_get::<E>))
-        .route("/users/:username/following", get(users::following::user_following_get::<E>))
-        .route("/users/:username/followers", get(users::followers::user_followers_get::<E>))
         .route("/users/:username/accept_follow", get(users::accept_follow::user_accept_follow_get::<E>))
         .route("/articles/*slug", get(articles::article_or_comments_get::<E>))
         .route("/events/articles/create/*slug", get(articles::events::article_create_events_get::<E>))

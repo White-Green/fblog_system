@@ -157,36 +157,6 @@ impl UserProvider for InMemoryServer {
         users.get(username).map(|state| Body::from(state.info_ap.clone()))
     }
 
-    async fn get_followers_html(&self, username: &str) -> Option<Body> {
-        let users = self.users.read().await;
-        users
-            .get(username)
-            .map(|state| Body::from(state.followers.iter().map(|f| f.id.as_str()).collect::<Vec<_>>().join(", ")))
-    }
-
-    async fn get_followers_len(&self, username: &str) -> usize {
-        let users = self.users.read().await;
-        users.get(username).map(|state| state.followers.len()).unwrap_or(0)
-    }
-
-    async fn get_follower_ids_until(&self, username: &str, until: u64) -> (ArrayVec<String, 10>, u64) {
-        let map = self.users.read().await;
-        match map.get(username) {
-            Some(UserState { followers: list, .. }) => {
-                let until = list.len().min(until as usize);
-                let start = until.saturating_sub(10);
-                let mut ids = ArrayVec::<String, 10>::new();
-                for follower in &list[start..until] {
-                    if ids.try_push(follower.id.clone()).is_err() {
-                        break;
-                    }
-                }
-                (ids, start as u64)
-            }
-            _ => (ArrayVec::new(), 0),
-        }
-    }
-
     async fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) {
         let mut users = self.users.write().await;
         if let Some(UserState { followers, .. }) = users.get_mut(username) {

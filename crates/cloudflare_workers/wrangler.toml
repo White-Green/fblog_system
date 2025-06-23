@@ -1,3 +1,6 @@
+# このファイルはテスト用に用意しているものです
+# デプロイ時の設定は wrangler.template.toml にあります
+
 name = "test"
 main = "build/worker/shim.mjs"
 compatibility_date = "2025-06-07"

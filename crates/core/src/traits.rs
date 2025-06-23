@@ -53,10 +53,6 @@ pub trait UserProvider {
     fn get_user_html(&self, username: &str) -> impl Future<Output = Option<Body>> + Send;
     fn get_user_ap(&self, username: &str) -> impl Future<Output = Option<Body>> + Send;
 
-    fn get_followers_html(&self, username: &str) -> impl Future<Output = Option<Body>> + Send;
-    fn get_followers_len(&self, username: &str) -> impl Future<Output = usize> + Send;
-    fn get_follower_ids_until(&self, username: &str, until: u64) -> impl Future<Output = (ArrayVec<String, 10>, u64)> + Send;
-
     fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower(&self, username: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower_by_actor(&self, username: &str, actor: &str) -> impl Future<Output = ()> + Send;

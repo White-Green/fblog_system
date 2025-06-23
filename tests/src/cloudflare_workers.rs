@@ -18,7 +18,6 @@ impl CloudflareWorkers {
         let process = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
             .args(["wrangler", "dev", "--port", &port.to_string(), "--local"])
-            .env("CARGO_FEATURE_TEST", "1") // Enable the test feature
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())

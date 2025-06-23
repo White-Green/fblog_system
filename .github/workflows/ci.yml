@@ -27,7 +27,9 @@ jobs:
         run: docker compose -f test_config/compose.yml up -d caddy
 
       - name: Setup test data
-        run: mv test_config/test_data/* .
+        run: |
+          mv test_config/test_data/e2e_test* .
+          mv test_config/test_data/cloudflare_workers crates/cloudflare_workers/public
 
       - name: Fix certificate permissions
         run: |
