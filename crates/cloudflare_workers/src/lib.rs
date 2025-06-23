@@ -520,35 +520,64 @@ fn start() {
     tracing_subscriber::registry().with(fmt_layer).with(perf_layer).init();
 }
 
-#[event(fetch)]
-async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
+// Setup function to create WorkerState from environment
+async fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
     console_error_panic_hook::set_once();
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
     let queue = env.queue("JOB_QUEUE")?;
     let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
-    let state = WorkerState {
+    Ok(WorkerState {
         env: env.clone(),
         signing_key,
         queue,
         db,
-    };
+    })
+}
+
+#[cfg(not(feature = "test"))]
+#[event(fetch)]
+async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
+    let state = setup_worker_state(&env).await?;
     Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
+}
+
+#[cfg(feature = "test")]
+#[event(fetch)]
+async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
+    let url = req.uri();
+    let path = url.path();
+    let state = setup_worker_state(&env).await?;
+
+    // Health check endpoint - always returns 200 OK
+    if path == "/" {
+        return Ok(http::Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::from("OK"))
+            .unwrap());
+    }
+
+    // Test endpoint
+    if path == "/test" {
+
+        // Here you can add test-specific logic
+        // For now, just return a success message
+        return Ok(http::Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::from("Test endpoint"))
+            .unwrap());
+    }
+
+    // For any other path, return 404
+    Ok(http::Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .body(Body::from("Not Found"))
+        .unwrap())
 }
 
 #[event(queue)]
 async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Context) -> worker::Result<()> {
-    console_error_panic_hook::set_once();
-    let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
-    let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
-    let queue = env.queue("JOB_QUEUE")?;
-    let db = std::sync::Arc::new(env.d1("BLOG_DB")?);
-    let state = WorkerState {
-        env: env.clone(),
-        signing_key,
-        queue,
-        db,
-    };
+    let state = setup_worker_state(&env).await?;
     for message in batch.messages()? {
         let data = message.body().clone();
         match process_queue(&state, data).await {
