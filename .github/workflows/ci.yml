@@ -28,7 +28,7 @@ jobs:
 
       - name: Setup test data
         run: |
-          mv test_config/test_data/e2e_test* .
+          mv test_config/test_data/e2e_test/* .
           mv test_config/test_data/cloudflare_workers crates/cloudflare_workers/public
 
       - name: Fix certificate permissions
