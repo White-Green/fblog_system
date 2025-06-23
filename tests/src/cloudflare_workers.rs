@@ -13,7 +13,21 @@ impl CloudflareWorkers {
     pub fn new(client: Client) -> Self {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let port = 8788; // Use a different port than the in-memory server
-
+        std::process::Command::new("tree")
+            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
+            .stderr(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stdin(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        std::process::Command::new("pnpx")
+            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
+            .args(["wrangler", "d1", "migrations", "apply", "BLOG_DB", "--local"])
+            .stderr(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stdin(std::process::Stdio::null())
+            .output()
+            .unwrap();
         // Start wrangler dev with the test feature enabled
         let process = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
