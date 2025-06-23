@@ -60,11 +60,7 @@ pub trait UserProvider {
     fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower(&self, username: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower_by_actor(&self, username: &str, actor: &str) -> impl Future<Output = ()> + Send;
-    fn get_followers_inbox_batch(
-        &self,
-        username: &str,
-        last_inbox: &str,
-    ) -> impl Future<Output = (ArrayVec<String, 10>, String)> + Send;
+    fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> impl Future<Output = (ArrayVec<String, 10>, String)> + Send;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

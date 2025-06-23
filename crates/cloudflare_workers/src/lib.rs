@@ -7,8 +7,8 @@ use chrono::Utc;
 use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
-use futures::stream::TryStreamExt;
 use futures::Stream;
+use futures::stream::TryStreamExt;
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
@@ -445,7 +445,6 @@ impl UserProvider for WorkerState {
             }
         }
     }
-
 
     #[worker::send]
     async fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> (ArrayVec<String, 10>, String) {
