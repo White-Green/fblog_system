@@ -7,8 +7,8 @@ use chrono::Utc;
 use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
+use futures::Stream;
 use futures::stream::TryStreamExt;
-use futures::{Future, Stream};
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
@@ -446,27 +446,37 @@ impl UserProvider for WorkerState {
         }
     }
 
-    #[allow(refining_impl_trait)]
-    fn get_followers_inbox(&self, username: &str) -> impl Future<Output = impl Stream<Item = String> + Send> + Send {
-        let username = username.to_owned();
-        let db = self.db.as_ref();
-        worker::send::SendFuture::new(async move {
-            let rows: Vec<Vec<String>> = match worker::query!(db, "SELECT DISTINCT inbox FROM followers WHERE username = ?1", &username) {
-                Ok(stmt) => match stmt.raw().await {
-                    Ok(r) => r,
-                    Err(e) => {
-                        tracing::error!(error = ?e, "failed to execute get_followers_inbox");
-                        Vec::new()
-                    }
-                },
-                Err(e) => {
-                    tracing::error!(error = ?e, "failed to prepare get_followers_inbox");
-                    Vec::new()
+    #[worker::send]
+    async fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> (ArrayVec<String, 10>, String) {
+        let stmt = match worker::query!(
+            self.db.as_ref(),
+            "SELECT DISTINCT inbox FROM followers WHERE username = ?1 AND inbox > ?2 ORDER BY inbox LIMIT 10",
+            &username,
+            &last_inbox
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to prepare get_followers_inbox_batch");
+                return (ArrayVec::new(), last_inbox.to_string());
+            }
+        };
+        let rows: Vec<Vec<String>> = match stmt.raw().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(error = ?e, "failed to execute get_followers_inbox_batch");
+                return (ArrayVec::new(), last_inbox.to_string());
+            }
+        };
+        let mut vec = ArrayVec::<String, 10>::new();
+        for mut row in rows {
+            if let Some(inbox) = row.pop() {
+                if vec.try_push(inbox).is_err() {
+                    break;
                 }
-            };
-            let iter = rows.into_iter().filter_map(|mut r| r.pop());
-            futures::stream::iter(iter)
-        })
+            }
+        }
+        let next_last = vec.last().cloned().unwrap_or_default();
+        (vec, next_last)
     }
 }
 impl Queue for WorkerState {

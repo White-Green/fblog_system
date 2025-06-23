@@ -3,7 +3,6 @@ use axum::body::Body;
 use axum::http::Request;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use futures::Stream;
 use rsa::pkcs1v15::SigningKey;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -61,7 +60,7 @@ pub trait UserProvider {
     fn add_follower(&self, username: &str, follower_id: &str, inbox: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower(&self, username: &str, event_id: &str) -> impl Future<Output = ()> + Send;
     fn remove_follower_by_actor(&self, username: &str, actor: &str) -> impl Future<Output = ()> + Send;
-    fn get_followers_inbox(&self, username: &str) -> impl Future<Output: Stream<Item = String> + Send> + Send;
+    fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> impl Future<Output = (ArrayVec<String, 10>, String)> + Send;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -82,6 +81,21 @@ pub enum QueueData {
     DeliveryDeleteArticleToAll {
         slug: String,
         author: String,
+    },
+    DeliveryNewArticleBatch {
+        slug: String,
+        author: String,
+        last_inbox: String,
+    },
+    DeliveryUpdateArticleBatch {
+        slug: String,
+        author: String,
+        last_inbox: String,
+    },
+    DeliveryDeleteArticleBatch {
+        slug: String,
+        author: String,
+        last_inbox: String,
     },
     DeliveryNewArticle {
         slug: String,
