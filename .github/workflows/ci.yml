@@ -30,7 +30,6 @@ jobs:
         run: |
           mv test_config/test_data/e2e_test/* .
           mv test_config/test_data/cloudflare_workers crates/cloudflare_workers/public
-          tree crates/cloudflare_workers
 
       - name: Fix certificate permissions
         run: |
