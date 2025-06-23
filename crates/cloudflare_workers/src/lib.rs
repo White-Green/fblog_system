@@ -551,15 +551,11 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
 
     // Health check endpoint - always returns 200 OK
     if path == "/" {
-        return Ok(http::Response::builder()
-            .status(StatusCode::OK)
-            .body(Body::from("OK"))
-            .unwrap());
+        return Ok(http::Response::builder().status(StatusCode::OK).body(Body::from("OK")).unwrap());
     }
 
     // Test endpoint
     if path == "/test" {
-
         // Here you can add test-specific logic
         // For now, just return a success message
         return Ok(http::Response::builder()

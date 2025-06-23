@@ -14,15 +14,11 @@ async fn wait_for(mut pred: impl AsyncFnMut() -> bool) {
 
 #[test]
 fn test_cloudflare_workers() {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async {
-            let client = Client::new();
-            let mut cloudflare_workers = CloudflareWorkers::new(client);
-            wait_for(async || cloudflare_workers.server_started().await).await;
-            let response = cloudflare_workers.test_endpoint().await;
-            assert!(response.status().is_success());
-        });
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
+        let client = Client::new();
+        let mut cloudflare_workers = CloudflareWorkers::new(client);
+        wait_for(async || cloudflare_workers.server_started().await).await;
+        let response = cloudflare_workers.test_endpoint().await;
+        assert!(response.status().is_success());
+    });
 }

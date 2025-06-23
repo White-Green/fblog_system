@@ -1,5 +1,4 @@
 use reqwest::Client;
-use std::fs::File;
 use std::path::Path;
 use std::process::Child;
 use std::time::Duration;
@@ -39,10 +38,9 @@ impl CloudflareWorkers {
     }
 
     pub async fn server_started(&mut self) -> bool {
-        if let Ok(Ok(response)) = tokio::time::timeout(
-            Duration::from_secs(1),
-            self.client.get(format!("http://localhost:{}/", self.port)).send()
-        ).await {
+        if let Ok(Ok(response)) =
+            tokio::time::timeout(Duration::from_secs(1), self.client.get(format!("http://localhost:{}/", self.port)).send()).await
+        {
             if response.status().is_success() {
                 return true;
             }
@@ -54,11 +52,7 @@ impl CloudflareWorkers {
     }
 
     pub async fn test_endpoint(&self) -> reqwest::Response {
-        self.client
-            .get(format!("http://localhost:{}/test", self.port))
-            .send()
-            .await
-            .unwrap()
+        self.client.get(format!("http://localhost:{}/test", self.port)).send().await.unwrap()
     }
 }
 
