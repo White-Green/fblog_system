@@ -28,7 +28,7 @@ jobs:
           components: clippy
 
       - name: Setup test data
-        run: mv test_config/test_data/* .
+        run: mv test_config/test_data/e2e_test/* .
 
       - name: Build site
         run: pnpm run build

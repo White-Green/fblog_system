@@ -15,7 +15,7 @@ async fn test_basic_methods(state: &WorkerState) {
 }
 
 async fn test_env_trait_methods(state: &WorkerState) {
-    assert_eq!(state.url(), "https://local.test");
+    assert_eq!(state.url().to_string(), "https://local.test");
     state.signing_key();
 }
 
