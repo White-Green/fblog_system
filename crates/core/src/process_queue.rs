@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::http::header::{ACCEPT, CONTENT_TYPE};
 use bytes::Bytes;
 use chrono::{DateTime, FixedOffset};
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use http_body_util::{BodyExt, Limited};
 use mime::Mime;
 use serde::Deserialize;
@@ -248,14 +248,10 @@ where
                 }
             };
             state
-                .get_followers_inbox(&author)
-                .await
-                .for_each(|inbox| {
-                    state.enqueue(QueueData::DeliveryNewArticle {
-                        slug: slug.clone(),
-                        author: author.clone(),
-                        inbox,
-                    })
+                .enqueue(QueueData::DeliveryNewArticleBatch {
+                    slug: slug.clone(),
+                    author,
+                    last_inbox: String::new(),
                 })
                 .await;
             return ProcessQueueResult::Finished;
@@ -269,30 +265,91 @@ where
                 }
             };
             state
-                .get_followers_inbox(&author)
-                .await
-                .for_each(|inbox| {
-                    state.enqueue(QueueData::DeliveryUpdateArticle {
-                        slug: slug.clone(),
-                        author: author.clone(),
-                        inbox,
-                    })
+                .enqueue(QueueData::DeliveryUpdateArticleBatch {
+                    slug: slug.clone(),
+                    author,
+                    last_inbox: String::new(),
                 })
                 .await;
             return ProcessQueueResult::Finished;
         }
         QueueData::DeliveryDeleteArticleToAll { slug, author } => {
             state
-                .get_followers_inbox(&author)
-                .await
-                .for_each(|inbox| {
-                    state.enqueue(QueueData::DeliveryDeleteArticle {
+                .enqueue(QueueData::DeliveryDeleteArticleBatch {
+                    slug: slug.clone(),
+                    author,
+                    last_inbox: String::new(),
+                })
+                .await;
+            return ProcessQueueResult::Finished;
+        }
+        QueueData::DeliveryNewArticleBatch { slug, author, last_inbox } => {
+            let (inboxes, next_last) = state.get_followers_inbox_batch(&author, &last_inbox).await;
+            let is_full = inboxes.is_full();
+            for inbox in inboxes.into_iter() {
+                state
+                    .enqueue(QueueData::DeliveryNewArticle {
                         slug: slug.clone(),
                         author: author.clone(),
                         inbox,
                     })
-                })
-                .await;
+                    .await;
+            }
+            if is_full {
+                state
+                    .enqueue(QueueData::DeliveryNewArticleBatch {
+                        slug,
+                        author,
+                        last_inbox: next_last,
+                    })
+                    .await;
+            }
+            return ProcessQueueResult::Finished;
+        }
+        QueueData::DeliveryUpdateArticleBatch { slug, author, last_inbox } => {
+            let (inboxes, next_last) = state.get_followers_inbox_batch(&author, &last_inbox).await;
+            let is_full = inboxes.is_full();
+            for inbox in inboxes.into_iter() {
+                state
+                    .enqueue(QueueData::DeliveryUpdateArticle {
+                        slug: slug.clone(),
+                        author: author.clone(),
+                        inbox,
+                    })
+                    .await;
+            }
+            if is_full {
+                state
+                    .enqueue(QueueData::DeliveryUpdateArticleBatch {
+                        slug,
+                        author,
+                        last_inbox: next_last,
+                    })
+                    .await;
+            }
+            return ProcessQueueResult::Finished;
+        }
+        QueueData::DeliveryDeleteArticleBatch { slug, author, last_inbox } => {
+            let (inboxes, next_last) = state.get_followers_inbox_batch(&author, &last_inbox).await;
+            let is_full = inboxes.is_full();
+            for inbox in inboxes.into_iter() {
+                state
+                    .enqueue(QueueData::DeliveryDeleteArticle {
+                        slug: slug.clone(),
+                        author: author.clone(),
+                        inbox,
+                    })
+                    .await;
+            }
+            if is_full {
+                state
+                    .enqueue(QueueData::DeliveryDeleteArticleBatch {
+                        slug,
+                        author,
+                        last_inbox: next_last,
+                    })
+                    .await;
+            }
             return ProcessQueueResult::Finished;
         }
         QueueData::DeliveryNewArticle { slug, author, inbox } => {

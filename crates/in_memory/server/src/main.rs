@@ -9,7 +9,6 @@ use chrono::{DateTime, Utc};
 use fblog_system_core::process_queue::process_queue;
 use fblog_system_core::route::router;
 use fblog_system_core::traits::{ArticleNewComment, ArticleNewReaction, ArticleProvider, Env, HTTPClient, Queue, QueueData, UserProvider};
-use futures::{Stream, stream};
 use rsa::pkcs1v15::SigningKey;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::sha2::Sha256;
@@ -217,17 +216,25 @@ impl UserProvider for InMemoryServer {
         }
     }
 
-    #[allow(refining_impl_trait)]
-    async fn get_followers_inbox(&self, username: &str) -> impl Stream<Item = String> + Send {
+    async fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> (ArrayVec<String, 10>, String) {
         let users = self.users.clone().read_owned().await;
-        let inboxes = users.get(username).map(|user| {
-            let mut unique = std::collections::HashSet::new();
-            user.followers
-                .iter()
-                .filter_map(|f| if unique.insert(f.inbox.clone()) { Some(f.inbox.clone()) } else { None })
-                .collect::<Vec<_>>()
-        });
-        stream::iter(inboxes.into_iter().flatten())
+        let mut vec = ArrayVec::<String, 10>::new();
+        if let Some(user) = users.get(username) {
+            let mut unique: Vec<String> = user.followers.iter().map(|f| f.inbox.clone()).collect();
+            unique.sort();
+            unique.dedup();
+            let start = match unique.binary_search(&last_inbox.to_string()) {
+                Ok(idx) => idx + 1,
+                Err(idx) => idx,
+            };
+            for inbox in unique.iter().skip(start) {
+                if vec.try_push(inbox.clone()).is_err() {
+                    break;
+                }
+            }
+        }
+        let next_last = vec.last().cloned().unwrap_or_default();
+        (vec, next_last)
     }
 }
 
