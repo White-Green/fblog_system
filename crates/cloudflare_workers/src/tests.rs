@@ -1,15 +1,6 @@
 use crate::WorkerState;
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use bytes::Bytes;
-use chrono::Utc;
-use fblog_system_core::traits::{ArticleNewComment, ArticleNewReaction, QueueData, UserProvider};
-use serde_json;
+use fblog_system_core::traits::{ArticleNewComment, ArticleNewReaction, ArticleProvider, Env, QueueData, UserProvider};
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tracing;
-use worker::console_log;
 
 pub async fn run_all_tests(state: WorkerState) {
     test_basic_methods(&state).await;
@@ -80,11 +71,11 @@ async fn test_user_provider_methods(state: &WorkerState) {
     for c in 'a'..='z' {
         let follower_id1 = format!("https://{c}.test/user1");
         let inbox_url = format!("https://{c}.test/inbox");
-        let event_id = format!("https://{c}.test/follow/event-1", i);
+        let event_id = format!("https://{c}.test/follow/event-1");
         state.add_follower("user1", &follower_id1, &inbox_url, &event_id).await;
 
         let follower_id2 = format!("https://{c}.test/user2");
-        let event_id = format!("https://{c}.test/follow/event-2", i);
+        let event_id = format!("https://{c}.test/follow/event-2");
         state.add_follower("user1", &follower_id2, &inbox_url, &event_id).await;
 
         expect_all_followers_inbox.insert(inbox_url);
