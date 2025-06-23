@@ -6,7 +6,6 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "postbuild": "rm -rf crates/cloudflare_workers/public && cp -r dist crates/cloudflare_workers/public",
     "preview": "astro preview",
     "lint": "biome lint src",
     "format": "biome format --write src",
