@@ -18,7 +18,7 @@ impl CloudflareWorkers {
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())
-            .spawn()
+            .output()
             .unwrap();
         std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
