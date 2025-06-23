@@ -31,6 +31,7 @@ jobs:
 
       - name: Fix certificate permissions
         run: |
+          sleep 10
           sudo chown -R $(id -u):$(id -g) test_config/caddy-data
           sudo chmod -R a+rX test_config/caddy-data
 
@@ -44,18 +45,6 @@ jobs:
         run: cargo test --workspace
         env:
           RUST_BACKTRACE: full
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: docker_stdout
-          path: docker_log.stdout
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: docker_stderr
-          path: docker_log.stderr
 
       - name: Stop caddy
         if: always()
