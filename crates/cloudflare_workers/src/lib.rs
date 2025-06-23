@@ -450,7 +450,7 @@ fn start() {
 }
 
 // Setup function to create WorkerState from environment
-async fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
+fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
     console_error_panic_hook::set_once();
     let pem = env.var("PRIVATE_KEY_PEM").unwrap().to_string();
     let signing_key = RSASHA2SigningKey::from_pkcs8_pem(&pem).unwrap();
@@ -467,7 +467,7 @@ async fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
 #[cfg(not(feature = "test"))]
 #[event(fetch)]
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
-    let state = setup_worker_state(&env).await?;
+    let state = setup_worker_state(&env)?;
     Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
 }
 
@@ -476,7 +476,7 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
     let url = req.uri();
     let path = url.path();
-    let state = setup_worker_state(&env).await?;
+    let state = setup_worker_state(&env)?;
 
     // Health check endpoint - always returns 200 OK
     if path == "/" {
@@ -501,7 +501,7 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
 
 #[event(queue)]
 async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Context) -> worker::Result<()> {
-    let state = setup_worker_state(&env).await?;
+    let state = setup_worker_state(&env)?;
     for message in batch.messages()? {
         let data = message.body().clone();
         match process_queue(&state, data).await {
