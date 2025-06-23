@@ -33,64 +33,43 @@ runs:
   using: "composite"
   steps:
     - id: normalized
+      name: Normalize variables
       shell: bash
       run: |
         WORKING_DIR="${{ inputs.working_dir }}"
         echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
         node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' >> $GITHUB_OUTPUT
 
-    - name: Copy articles
+    - name: Prepare workspace
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
-        mkdir -p contents/articles
+        mkdir -p contents/articles contents/users public
         cp -r ${{ inputs.article_data_path }}/* contents/articles/
-
-    - name: Copy users
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        mkdir -p contents/users
         cp -r ${{ inputs.user_data_path }}/* contents/users/
-
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        mkdir public
         cp -r ${{ inputs.build_data_path }}/* public/
 
-    - shell: bash
+    - name: Normalize HTML structure
+      shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: |
-        mkdir -p public/raw__/articles/html
-        mkdir -p public/articles
         shopt -s extglob
-        mv public/articles/!(index.html) public/raw__/articles/html
-        mv public/articles/index.html public/articles/index.html || true
-        cd public/raw__/articles/html
-        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
-
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        mkdir -p public/raw__/users/html
-        mkdir -p public/users
-        shopt -s extglob
-        mv public/users/!(index.html) public/raw__/users/html
-        mv public/users/index.html public/users/index.html || true
-        cd public/raw__/users/html
-        find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
-
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: tree -a
+        for dir in articles users; do
+          mkdir -p public/raw__/${dir}/html public/${dir}
+          mv public/${dir}/!(index.html) public/raw__/${dir}/html || true
+          mv public/${dir}/index.html public/${dir}/index.html || true
+          cd public/raw__/${dir}/html
+          find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
+          cd - >/dev/null
+        done
 
     - name: Enable corepack
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: corepack enable
 
-    - uses: actions/setup-node@v4
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'pnpm'
@@ -105,27 +84,27 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: PUBLIC_KEY_FILE=${{ inputs.public_key_path }} SITE_URL="https://${{ steps.normalized.outputs.host_name }}" pnpm run build
 
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: tree -a dist
-
-    - uses: dtolnay/rust-toolchain@stable
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
 
     - id: crate_version
+      name: Determine worker-build version
       shell: bash
       run: |
         VER=$(curl https://index.crates.io/wo/rk/worker-build | jq -r 'select(.yanked == false) | .vers' | sort -V | tail -n 1)
         echo "worker_build=$VER" >> $GITHUB_OUTPUT
 
     - id: worker_build_binary_cache
+      name: Restore worker-build cache
       uses: actions/cache@v4
       with:
         key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
         path: ~/.cargo/bin/worker-build
 
-    - shell: bash
+    - name: Install worker-build
+      shell: bash
       if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
       run: cargo install worker-build
 
@@ -136,17 +115,18 @@ runs:
       run: |
         echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
-    - uses: actions/cache@v4
+    - name: Restore build cache
+      uses: actions/cache@v4
       with:
         key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: /tmp/fblog_system_build_cache
 
-    - shell: bash
+    - name: Load build cache
+      shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        mv /tmp/fblog_system_build_cache ./target || true
+      run: mv /tmp/fblog_system_build_cache ./target || true
 
-    - name: Deploy to Cloudflare Workers
+    - name: Upload article snapshot
       uses: cloudflare/wrangler-action@v3
       with:
         workingDirectory: ${{ steps.normalized.outputs.working_dir }}
@@ -155,11 +135,8 @@ runs:
         preCommands: ./crates/cloudflare_workers/update_snapshot.sh ${{ inputs.project_name }}
         command: r2 object put --remote "${{ inputs.project_name }}-blog-bucket/article_snapshot.zst" -f ./article_snapshot_new.zst
 
-    - shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: cat events.jsonl
-
-    - shell: bash
+    - name: Move built site
+      shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv dist crates/cloudflare_workers/public
 
@@ -175,9 +152,7 @@ runs:
         postCommands: |
           CF_ACCOUNT_ID=${{ inputs.cloudflare_account_id }} CF_API_TOKEN=${{ inputs.cloudflare_api_token }} ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
 
-    - shell: bash
+    - name: Save build cache
+      shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        ls -a
-        ls -a target
-        mv ./target /tmp/fblog_system_build_cache
+      run: mv ./target /tmp/fblog_system_build_cache
