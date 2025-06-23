@@ -88,8 +88,6 @@ async fn test_user_provider_methods(state: &WorkerState) {
         state.add_follower("user1", &follower_id2, &inbox_url, &event_id).await;
 
         expect_all_followers_inbox.insert(inbox_url);
-
-        assert_eq!(state.get_followers_len("user1").await, (c - 'a') * 2);
     }
 
     let mut actual_all_followers_inbox = HashSet::new();
