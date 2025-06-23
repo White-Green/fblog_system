@@ -14,19 +14,10 @@ impl CloudflareWorkers {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let port = 8788; // Use a different port than the in-memory server
 
-        let mut process;
-        if cfg!(target_os = "windows") {
-            process = std::process::Command::new("cmd");
-            process.arg("/C");
-        } else {
-            process = std::process::Command::new("sh");
-            process.arg("-c");
-        }
-
         // Start wrangler dev with the test feature enabled
-        let process = process
+        let process = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
-            .args(["pnpx", "wrangler", "dev", "--port", &port.to_string(), "--local"])
+            .args(["wrangler", "dev", "--port", &port.to_string(), "--local"])
             .env("CARGO_FEATURE_TEST", "1") // Enable the test feature
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
