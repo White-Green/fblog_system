@@ -27,10 +27,14 @@ jobs:
         run: docker compose -f test_config/compose.yml up -d caddy
 
       - name: Setup test data
-        run: mv test_config/test_data/* .
+        run: |
+          mv test_config/test_data/e2e_test/* .
+          mv test_config/test_data/cloudflare_workers crates/cloudflare_workers/public
+          tree crates/cloudflare_workers
 
       - name: Fix certificate permissions
         run: |
+          sleep 10
           sudo chown -R $(id -u):$(id -g) test_config/caddy-data
           sudo chmod -R a+rX test_config/caddy-data
 
@@ -44,18 +48,6 @@ jobs:
         run: cargo test --workspace
         env:
           RUST_BACKTRACE: full
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: docker_stdout
-          path: docker_log.stdout
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: docker_stderr
-          path: docker_log.stderr
 
       - name: Stop caddy
         if: always()

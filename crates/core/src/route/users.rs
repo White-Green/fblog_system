@@ -7,8 +7,6 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 
 pub(crate) mod accept_follow;
-pub(crate) mod followers;
-pub(crate) mod following;
 pub(crate) mod inbox;
 pub(crate) mod outbox;
 
