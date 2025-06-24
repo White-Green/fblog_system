@@ -256,7 +256,7 @@ impl ArticleProvider for WorkerState {
             }
         };
 
-        match stmt.first::<i64>(None).await {
+        match stmt.first::<i64>(Some("count")).await {
             Ok(Some(count)) => count as usize,
             Ok(None) => 0, // No record found
             Err(e) => {
@@ -276,7 +276,7 @@ impl ArticleProvider for WorkerState {
             }
         };
 
-        match stmt.first::<i64>(None).await {
+        match stmt.first::<i64>(Some("count")).await {
             Ok(Some(count)) => count as usize,
             Ok(None) => 0, // No record found
             Err(e) => {
