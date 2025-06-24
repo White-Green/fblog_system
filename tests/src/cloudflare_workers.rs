@@ -15,25 +15,27 @@ impl CloudflareWorkers {
         let port = 8788; // Use a different port than the in-memory server
 
         // Ensure local resources exist
-        std::process::Command::new("pnpx")
+        let output = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
             .args(["wrangler", "d1", "create", "BLOG_DB", "--local"])
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())
             .output()
-            .ok();
+            .unwrap();
+        assert!(output.status.success());
 
-        std::process::Command::new("pnpx")
+        let output = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
             .args(["wrangler", "r2", "bucket", "create", "test-blog-bucket", "--local"])
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())
             .output()
-            .ok();
+            .unwrap();
+        assert!(output.status.success());
 
-        std::process::Command::new("pnpx")
+        let output = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
             .args(["wrangler", "d1", "migrations", "apply", "BLOG_DB", "--local"])
             .stderr(std::process::Stdio::inherit())
@@ -41,6 +43,8 @@ impl CloudflareWorkers {
             .stdin(std::process::Stdio::null())
             .output()
             .unwrap();
+        assert!(output.status.success());
+
         // Start wrangler dev with the test feature enabled
         let process = std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
