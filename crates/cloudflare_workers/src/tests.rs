@@ -1,5 +1,6 @@
 use crate::WorkerState;
-use fblog_system_core::traits::{ArticleNewComment, ArticleNewReaction, ArticleProvider, Env, QueueData, UserProvider};
+use fblog_system_core::traits::{ArticleNewReaction, ArticleProvider, Env, UserProvider};
+use serde_json::json;
 use std::collections::HashSet;
 
 pub async fn run_all_tests(state: WorkerState) {
@@ -7,6 +8,7 @@ pub async fn run_all_tests(state: WorkerState) {
     test_env_trait_methods(&state).await;
     test_article_provider_methods(&state).await;
     test_user_provider_methods(&state).await;
+    test_reaction_methods(&state).await;
 }
 
 async fn test_basic_methods(state: &WorkerState) {
@@ -94,4 +96,61 @@ async fn test_user_provider_methods(state: &WorkerState) {
     }
 
     assert_eq!(actual_all_followers_inbox, expect_all_followers_inbox);
+}
+
+async fn test_reaction_methods(state: &WorkerState) {
+    // initial count should be zero
+    assert_eq!(state.reaction_count("article1").await, 0);
+
+    // add first reaction
+    let event_id1 = "https://actor1.test/events/reaction-1";
+    let actor_id1 = "https://actor1.test/users/actor1";
+    let raw1 = serde_json::to_string(&json!({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": event_id1,
+        "type": "Like",
+        "actor": actor_id1,
+        "object": format!("{}/articles/{}", state.url(), "article1"),
+        "content": "👍"
+    }))
+    .unwrap();
+    let reaction1 = ArticleNewReaction {
+        id: event_id1.to_owned(),
+        author_id: actor_id1.to_owned(),
+        reaction: "👍".to_owned(),
+        proceed_at: state.timestamp_now(),
+        raw: raw1,
+    };
+    state.add_reaction("article1", reaction1).await;
+    assert_eq!(state.reaction_count("article1").await, 1);
+
+    // add second reaction by another actor
+    let event_id2 = "https://actor2.test/events/reaction-2";
+    let actor_id2 = "https://actor2.test/users/actor2";
+    let raw2 = serde_json::to_string(&json!({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": event_id2,
+        "type": "Like",
+        "actor": actor_id2,
+        "object": format!("{}/articles/{}", state.url(), "article1"),
+        "content": "❤️"
+    }))
+    .unwrap();
+    let reaction2 = ArticleNewReaction {
+        id: event_id2.to_owned(),
+        author_id: actor_id2.to_owned(),
+        reaction: "❤️".to_owned(),
+        proceed_at: state.timestamp_now(),
+        raw: raw2,
+    };
+    state.add_reaction("article1", reaction2).await;
+    assert_eq!(state.reaction_count("article1").await, 2);
+
+    // remove reactions of actor1
+    state.remove_reaction_by("article1", "https://actor1.test/users/actor1").await;
+    assert_eq!(state.reaction_count("article1").await, 1);
+
+    // removing again should not make count negative
+    state.remove_reaction_by("article1", "https://actor1.test/users/actor1").await;
+    assert_eq!(state.reaction_count("article1").await, 0);
 }

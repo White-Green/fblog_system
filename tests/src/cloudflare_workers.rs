@@ -14,6 +14,25 @@ impl CloudflareWorkers {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let port = 8788; // Use a different port than the in-memory server
 
+        // Ensure local resources exist
+        std::process::Command::new("pnpx")
+            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
+            .args(["wrangler", "d1", "create", "BLOG_DB", "--local"])
+            .stderr(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stdin(std::process::Stdio::null())
+            .output()
+            .ok();
+
+        std::process::Command::new("pnpx")
+            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
+            .args(["wrangler", "r2", "bucket", "create", "test-blog-bucket", "--local"])
+            .stderr(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stdin(std::process::Stdio::null())
+            .output()
+            .ok();
+
         std::process::Command::new("pnpx")
             .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
             .args(["wrangler", "d1", "migrations", "apply", "BLOG_DB", "--local"])
