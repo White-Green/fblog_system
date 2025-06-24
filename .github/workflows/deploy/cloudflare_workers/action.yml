@@ -140,6 +140,11 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv dist crates/cloudflare_workers/public
 
+    - name: Check processed events
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      run: cat events.jsonl
+
     - name: Deploy to Cloudflare Workers
       uses: cloudflare/wrangler-action@v3
       with:

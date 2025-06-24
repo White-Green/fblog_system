@@ -37,9 +37,6 @@ fi
 
 PROJECT_NAME="$PROJECT_NAME" HOST_NAME="$HOST_NAME" D1_DATABASE_ID=$DATABASE_ID envsubst < wrangler.template.toml > wrangler.toml
 
-cat wrangler.toml
-ls migrations
-
 pnpm exec wrangler d1 migrations apply --config "$(pwd)/wrangler.toml" --remote "$DB_NAME"
 
 echo "Resources setup completed successfully!"
