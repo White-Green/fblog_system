@@ -52,6 +52,12 @@ export async function GET({params, props, request}) {
 
     // Extract image references from the collected data
     const attachments = [];
+    if (article.data.heroImage) {
+        attachments.push({
+            type: "Image",
+            url: article.data.heroImage.startsWith('http') ? article.data.heroImage : `${baseUrl}${article.data.heroImage}`,
+        });
+    }
     if (vFile.data.images && Array.isArray(vFile.data.images)) {
         for (const image of vFile.data.images) {
             attachments.push({
