@@ -2,20 +2,20 @@
 
 CREATE TABLE followers
 (
-    username TEXT,
+    username    TEXT,
     follower_id TEXT,
-    inbox TEXT,
-    event_id TEXT
+    inbox       TEXT,
+    event_id    TEXT
 );
 
 CREATE TABLE comments
 (
-    slug TEXT PRIMARY KEY,
+    slug  TEXT PRIMARY KEY,
     count INTEGER DEFAULT 0
 );
 
 CREATE TABLE reactions
 (
-    slug TEXT PRIMARY KEY,
+    slug  TEXT PRIMARY KEY,
     count INTEGER DEFAULT 0
 );
