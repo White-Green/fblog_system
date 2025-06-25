@@ -1,4 +1,4 @@
-import {getCollection} from 'astro:content';
+import {getCollection, getEntry} from 'astro:content';
 import fs from 'node:fs';
 
 function getPublicKeyPem(): string {
@@ -22,29 +22,40 @@ export async function getStaticPaths() {
     });
 }
 
-export async function GET({params, request}) {
-    const {username} = params;
+export async function GET({ params, request }) {
+    const { username } = params;
     const url = new URL(request.url);
     const baseUrl = `${url.protocol}//${url.host}`;
+
+    const userEntry = await getEntry("users", username);
+    const data = userEntry?.data;
 
     // Create the ActivityPub JSON for the user
     const userJson = {
         "@context": [
-            "https://www.w3.org/ns/activitystreams"
+            "https://www.w3.org/ns/activitystreams",
         ],
-        "type": "Person",
-        "id": `${baseUrl}/users/${username}`,
-        "inbox": `${baseUrl}/users/${username}/inbox`,
-        "outbox": `${baseUrl}/users/${username}/outbox`,
-        "following": `${baseUrl}/users/${username}/following`,
-        "followers": `${baseUrl}/users/${username}/followers`,
-        "preferredUsername": username,
-        "publicKey": {
-            "id": `${baseUrl}/users/${username}#main-key`,
-            "type": "Key",
-            "owner": `${baseUrl}/users/${username}`,
-            "publicKeyPem": getPublicKeyPem(),
-        }
+        type: "Person",
+        id: `${baseUrl}/users/${username}`,
+        inbox: `${baseUrl}/users/${username}/inbox`,
+        outbox: `${baseUrl}/users/${username}/outbox`,
+        following: `${baseUrl}/users/${username}/following`,
+        followers: `${baseUrl}/users/${username}/followers`,
+        preferredUsername: username,
+        ...(data?.name && {name: data.name}),
+        ...(data?.bio && {summary: data.bio}),
+        ...(data?.avatar && {
+            icon: {
+                type: "Image",
+                url: data.avatar.startsWith("http") ? data.avatar : `${baseUrl}${data.avatar}`,
+            },
+        }),
+        publicKey: {
+            id: `${baseUrl}/users/${username}#main-key`,
+            type: "Key",
+            owner: `${baseUrl}/users/${username}`,
+            publicKeyPem: getPublicKeyPem(),
+        },
     };
 
     return new Response(JSON.stringify(userJson), {
