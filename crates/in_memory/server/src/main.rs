@@ -314,8 +314,9 @@ async fn main() {
                     slug: String,
                 }
                 async move |Query(ReplaceArticleQuery { slug }), body: String| {
+                    let slug = slug.trim_matches('/');
                     let mut articles = state.articles.write().await;
-                    articles.get_mut(&slug).unwrap().info_ap = body;
+                    articles.get_mut(slug).unwrap().info_ap = body;
                 }
             }),
         )
@@ -324,8 +325,9 @@ async fn main() {
             delete({
                 let state = state.clone();
                 async move |Path(slug): Path<String>| {
+                    let slug = slug.trim_matches('/');
                     let mut articles = state.articles.write().await;
-                    articles.remove(&slug);
+                    articles.remove(slug);
                 }
             }),
         )
