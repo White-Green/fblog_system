@@ -1,5 +1,6 @@
 import {EXIT, visitParents} from 'unist-util-visit-parents';
-import type {Root, Text, Parent, Node} from 'hast';
+import {visit} from 'unist-util-visit';
+import type {Root, Text, Parent, Node, Element} from 'hast';
 
 export function rehypeTruncateHtml(
   {limit = 1500, ellipsis = '…'}: {limit?: number; ellipsis?: string} = {}
@@ -7,6 +8,20 @@ export function rehypeTruncateHtml(
   return function transformer(tree: Root) {
     let count = 0;
     let done = false;
+
+    // テキストノード全体の長さを先に計算しておく
+    let total = 0;
+    visit(tree, 'text', (node: Text) => {
+      total += node.value.length;
+    });
+
+    // limit * 1.2 以内なら省略せずにそのまま表示する
+    const threshold = limit * 1.2;
+    if (total <= threshold) {
+      return;
+    }
+
+    const omitted = total > limit ? total - limit : 0;
 
     /** 対象ノードより後ろを祖先まで遡って削除 */
     function cutAfter(node: Node, ancestors: Parent[]) {
@@ -31,9 +46,24 @@ export function rehypeTruncateHtml(
         const room = remain >= ellipsis.length ? remain - ellipsis.length : 0;
         node.value = node.value.slice(0, room) + ellipsis;
 
+        // 省略された文字数を表示するメッセージを挿入
+        if (omitted > 0) {
+          const parent = ancestors[ancestors.length - 1];
+          const idx = parent.children.indexOf(node);
+          const messageNode: Element = {
+            type: 'element',
+            tagName: 'span',
+            properties: {style: 'color:gray;font-style:italic'},
+            children: [{type: 'text', value: `あと${omitted}文字省略されています`}],
+          };
+          parent.children.splice(idx + 1, 0, messageNode);
+          cutAfter(messageNode, ancestors);
+        } else {
+          cutAfter(node, ancestors);
+        }
+
         // 文字数カウントを上限に合わせる
         count = limit;
-        cutAfter(node, ancestors);
         done = true;
         return EXIT;
       }
