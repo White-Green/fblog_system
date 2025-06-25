@@ -104,6 +104,7 @@ pub async fn article_or_comments_get<E>(
 where
     E: Env + ArticleProvider + Clone,
 {
+    let slug = slug.trim_matches('/').to_string();
     match query.data {
         None => article_get(header, slug, state).await,
         Some(ArticleData::Meta) => article_metadata_get(header, slug, state).await,

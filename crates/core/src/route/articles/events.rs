@@ -13,15 +13,16 @@ where
     E: Env + ArticleProvider,
 {
     let header = HeaderReader::new(&header);
+    let slug = slug.trim_matches('/');
     let Some(AcceptMime::AP) = header.select(AcceptMimeSet::AP) else {
         return StatusCode::NOT_ACCEPTABLE.into_response();
     };
-    if !state.exists_article(&slug).await {
+    if !state.exists_article(slug).await {
         return StatusCode::NOT_FOUND.into_response();
     }
 
     let url = state.url();
-    let author = state.get_author_id(&slug).await.unwrap();
+    let author = state.get_author_id(slug).await.unwrap();
     let actor = serde_json::to_string(&format!("{url}/users/{author}")).unwrap();
     let id = serde_json::to_string(&format!("{url}/events/articles/create/{slug}")).unwrap();
     let object = serde_json::to_string(&format!("{url}/articles/{slug}")).unwrap();
@@ -45,15 +46,16 @@ where
     E: Env + ArticleProvider,
 {
     let header = HeaderReader::new(&header);
+    let slug = slug.trim_matches('/');
     let Some(AcceptMime::AP) = header.select(AcceptMimeSet::AP) else {
         return StatusCode::NOT_ACCEPTABLE.into_response();
     };
-    if !state.exists_article(&slug).await {
+    if !state.exists_article(slug).await {
         return StatusCode::NOT_FOUND.into_response();
     }
 
     let url = state.url();
-    let author = state.get_author_id(&slug).await.unwrap();
+    let author = state.get_author_id(slug).await.unwrap();
     let actor = serde_json::to_string(&format!("{url}/users/{author}")).unwrap();
     let id = serde_json::to_string(&format!("{url}/events/articles/update/{slug}")).unwrap();
     let object = serde_json::to_string(&format!("{url}/articles/{slug}")).unwrap();
@@ -77,15 +79,16 @@ where
     E: Env + ArticleProvider,
 {
     let header = HeaderReader::new(&header);
+    let slug = slug.trim_matches('/');
     let Some(AcceptMime::AP) = header.select(AcceptMimeSet::AP) else {
         return StatusCode::NOT_ACCEPTABLE.into_response();
     };
-    if state.exists_article(&slug).await {
+    if state.exists_article(slug).await {
         return StatusCode::NOT_FOUND.into_response();
     }
 
     let url = state.url();
-    let author = state.get_author_id(&slug).await.unwrap();
+    let author = state.get_author_id(slug).await.unwrap();
     let actor = serde_json::to_string(&format!("{url}/users/{author}")).unwrap();
     let id = serde_json::to_string(&format!("{url}/events/articles/delete/{slug}")).unwrap();
     let object = serde_json::to_string(&format!("{url}/articles/{slug}")).unwrap();

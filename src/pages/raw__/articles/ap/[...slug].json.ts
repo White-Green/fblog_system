@@ -13,7 +13,7 @@ export async function getStaticPaths() {
 
     return articles.map(article => {
         // Use the path without the extension as the slug
-        const slug = article.id.replace(/\.md$/, '');
+        const slug = article.id.replace(/\.md$/, '').replace(/^\/+|\/+$/g, "");
 
         return {
             params: {slug},
@@ -25,7 +25,7 @@ export async function getStaticPaths() {
 export const prerender = true;
 
 export async function GET({params, props, request}) {
-    const {slug} = params;
+    const slug = params.slug.replace(/^\/+|\/+$/g, "");
     const {article} = props;
     const url = new URL(request.url);
     const baseUrl = `${url.protocol}//${url.host}`;
