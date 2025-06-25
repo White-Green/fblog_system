@@ -69,7 +69,7 @@ where
                 } => {
                     let reply_target = reply_target.into_string();
                     let slug = match reply_target.strip_prefix(&format!("{}/articles/", state.url())) {
-                        Some(slug) => slug,
+                        Some(slug) => slug.trim_matches('/'),
                         None => {
                             tracing::warn!("invalid reply target: {reply_target}");
                             return ProcessQueueResult::Finished;
@@ -93,7 +93,7 @@ where
                 }
                 ResponseBody::Like { id, actor, object, content } => {
                     let slug = match object.strip_prefix(&format!("{}/articles/", state.url())) {
-                        Some(slug) => slug,
+                        Some(slug) => slug.trim_matches('/'),
                         None => {
                             tracing::warn!("invalid reaction target: {object}");
                             return ProcessQueueResult::Finished;
@@ -209,7 +209,7 @@ where
                             tracing::info!(undo_actor, actor, "actor mismatch");
                             return ProcessQueueResult::Finished;
                         }
-                        let Some(slug) = object.strip_prefix(&format!("{}/articles/", state.url())) else {
+                        let Some(slug) = object.strip_prefix(&format!("{}/articles/", state.url())).map(|s| s.trim_matches('/')) else {
                             tracing::warn!(object, "invalid reaction target");
                             return ProcessQueueResult::Finished;
                         };

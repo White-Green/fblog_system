@@ -3,7 +3,7 @@ import { getCollection } from 'astro:content';
 export async function getStaticPaths() {
     const articles = await getCollection('articles');
     return articles.map(article => {
-        const slug = article.id.replace(/\.md$/, '');
+        const slug = article.id.replace(/\.md$/, '').replace(/^\/+|\/+$/g, "");
         return { params: { slug }, props: { article } };
     });
 }
