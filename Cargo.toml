@@ -16,7 +16,7 @@ members = [
 fblog_system_core = { path = "crates/core" }
 
 arrayvec = { version = "0.7.6", features = ["serde"] }
-axum = { version = "0.7.9", default-features = false, features = ["macros", "json", "query"] }
+axum = { version = "0.8.8", default-features = false, features = ["macros", "json", "query"] }
 base64 = "0.22.1"
 bitflags = "2.10.0"
 bytes = "1.11.0"
