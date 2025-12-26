@@ -321,7 +321,7 @@ async fn main() {
             }),
         )
         .route(
-            "/articles/*slug",
+            "/articles/{*slug}",
             delete({
                 let state = state.clone();
                 async move |Path(slug): Path<String>| {
