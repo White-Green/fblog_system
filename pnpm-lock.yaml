@@ -15,8 +15,8 @@ importers:
         specifier: ^5.10.0
         version: 5.10.0(@types/node@24.0.3)(rollup@4.44.0)(typescript@5.8.3)
       marked:
-        specifier: ^15.0.12
-        version: 15.0.12
+        specifier: ^17.0.1
+        version: 17.0.1
       miniflare:
         specifier: ^4.20250617.3
         version: 4.20250617.3
@@ -1276,9 +1276,9 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
-  marked@15.0.12:
-    resolution: {integrity: sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA==}
-    engines: {node: '>= 18'}
+  marked@17.0.1:
+    resolution: {integrity: sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg==}
+    engines: {node: '>= 20'}
     hasBin: true
 
   mdast-util-definitions@6.0.0:
@@ -3259,7 +3259,7 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
-  marked@15.0.12: {}
+  marked@17.0.1: {}
 
   mdast-util-definitions@6.0.0:
     dependencies:
