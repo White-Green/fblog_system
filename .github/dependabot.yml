@@ -1,0 +1,50 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
