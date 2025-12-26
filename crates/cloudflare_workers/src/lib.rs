@@ -398,10 +398,10 @@ impl UserProvider for WorkerState {
         };
         let mut vec = ArrayVec::<String, 10>::new();
         for mut row in rows {
-            if let Some(inbox) = row.pop() {
-                if vec.try_push(inbox).is_err() {
-                    break;
-                }
+            if let Some(inbox) = row.pop()
+                && vec.try_push(inbox).is_err()
+            {
+                break;
             }
         }
         let next_last = vec.last().cloned().unwrap_or_default();

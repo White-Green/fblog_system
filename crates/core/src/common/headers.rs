@@ -39,7 +39,7 @@ pub struct HeaderReader<'a> {
 }
 
 impl HeaderReader<'_> {
-    pub fn new(headers: &HeaderMap) -> HeaderReader {
+    pub fn new(headers: &HeaderMap) -> HeaderReader<'_> {
         let accept = headers.get(ACCEPT).and_then(|accept| accept.to_str().ok()).unwrap_or("");
         HeaderReader { accept }
     }

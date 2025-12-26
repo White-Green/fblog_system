@@ -170,19 +170,19 @@ impl UserProvider for InMemoryServer {
 
     async fn remove_follower(&self, username: &str, event_id: &str) {
         let mut users = self.users.write().await;
-        if let Some(UserState { followers, .. }) = users.get_mut(username) {
-            if let Some(pos) = followers.iter().position(|f| f.event_id == event_id) {
-                followers.remove(pos);
-            }
+        if let Some(UserState { followers, .. }) = users.get_mut(username)
+            && let Some(pos) = followers.iter().position(|f| f.event_id == event_id)
+        {
+            followers.remove(pos);
         }
     }
 
     async fn remove_follower_by_actor(&self, username: &str, actor: &str) {
         let mut users = self.users.write().await;
-        if let Some(UserState { followers, .. }) = users.get_mut(username) {
-            if let Some(pos) = followers.iter().position(|f| f.id == actor) {
-                followers.remove(pos);
-            }
+        if let Some(UserState { followers, .. }) = users.get_mut(username)
+            && let Some(pos) = followers.iter().position(|f| f.id == actor)
+        {
+            followers.remove(pos);
         }
     }
 
