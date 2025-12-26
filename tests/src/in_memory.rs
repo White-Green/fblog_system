@@ -34,10 +34,10 @@ impl InMemoryBlog {
     }
 
     pub async fn server_started(&self) -> bool {
-        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get("http://localhost:8787/").send()).await {
-            if !response.status().is_server_error() {
-                return true;
-            }
+        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get("http://localhost:8787/").send()).await
+            && !response.status().is_server_error()
+        {
+            return true;
         }
         false
     }

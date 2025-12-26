@@ -34,7 +34,7 @@ impl DockerContainers {
         Self { client, _process: process }
     }
 
-    pub fn misskey_client(&self) -> MisskeyClient {
+    pub fn misskey_client(&self) -> MisskeyClient<'_> {
         let config = Ini::load_from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../test_config/misskey/credentials.ini"
@@ -44,7 +44,7 @@ impl DockerContainers {
         MisskeyClient::new(&self.client, "https://misskey.test", config.get("ACCESS_TOKEN").unwrap())
     }
 
-    pub fn sharkey_client(&self) -> SharkeyClient {
+    pub fn sharkey_client(&self) -> SharkeyClient<'_> {
         let config = Ini::load_from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../test_config/sharkey/credentials.ini"
@@ -54,7 +54,7 @@ impl DockerContainers {
         SharkeyClient::new(&self.client, "https://sharkey.test", config.get("ACCESS_TOKEN").unwrap())
     }
 
-    pub fn mastodon_client(&self) -> MastodonClient {
+    pub fn mastodon_client(&self) -> MastodonClient<'_> {
         let config = Ini::load_from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../test_config/mastodon/credentials.ini"

@@ -19,10 +19,10 @@ impl SharkeyClient<'_> {
     }
 
     pub async fn server_started(&self) -> bool {
-        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get(&self.base_url).send()).await {
-            if !response.status().is_server_error() {
-                return true;
-            }
+        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get(&self.base_url).send()).await
+            && !response.status().is_server_error()
+        {
+            return true;
         }
         false
     }

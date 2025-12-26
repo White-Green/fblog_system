@@ -28,36 +28,36 @@ impl MastodonClient<'_> {
     }
 
     pub async fn server_started(&mut self) -> bool {
-        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get(&self.base_url).send()).await {
-            if !response.status().is_server_error() {
-                let response = self
-                    .client
-                    .post(format!("{}/oauth/token", self.base_url))
-                    .header("Content-Type", "application/json")
-                    .body(
-                        serde_json::to_string(&serde_json::json!({
-                            "client_id": self.client_key.as_str(),
-                            "client_secret": self.client_secret.as_str(),
-                            "grant_type": "password",
-                            "username": self.email.as_str(),
-                            "password": self.password.as_str(),
-                            "scope": "read write follow",
-                        }))
-                        .unwrap(),
-                    )
-                    .send()
-                    .await
-                    .unwrap();
+        if let Ok(Ok(response)) = tokio::time::timeout(Duration::from_secs(1), self.client.get(&self.base_url).send()).await
+            && !response.status().is_server_error()
+        {
+            let response = self
+                .client
+                .post(format!("{}/oauth/token", self.base_url))
+                .header("Content-Type", "application/json")
+                .body(
+                    serde_json::to_string(&serde_json::json!({
+                        "client_id": self.client_key.as_str(),
+                        "client_secret": self.client_secret.as_str(),
+                        "grant_type": "password",
+                        "username": self.email.as_str(),
+                        "password": self.password.as_str(),
+                        "scope": "read write follow",
+                    }))
+                    .unwrap(),
+                )
+                .send()
+                .await
+                .unwrap();
 
-                if !response.status().is_success() {
-                    let error_text = response.text().await.unwrap();
-                    panic!("Failed to get token: {}", error_text);
-                }
-                let response = response.json::<serde_json::Value>().await.unwrap();
-                self.token = Some(response["access_token"].as_str().unwrap().to_owned());
-
-                return true;
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap();
+                panic!("Failed to get token: {}", error_text);
             }
+            let response = response.json::<serde_json::Value>().await.unwrap();
+            self.token = Some(response["access_token"].as_str().unwrap().to_owned());
+
+            return true;
         }
         false
     }
