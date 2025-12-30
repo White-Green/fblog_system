@@ -10,7 +10,7 @@ keep_vars = true
 route = "local.test/*"
 
 [build]
-command = "cargo install worker-build && worker-build --features test"
+command = "cargo install --locked worker-build && worker-build --features test"
 
 [assets]
 directory = "./public/"
