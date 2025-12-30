@@ -56,7 +56,7 @@ jobs:
           SITE_URL: https://blog.test
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
         env:
           RUST_BACKTRACE: full
 

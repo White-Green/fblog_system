@@ -106,7 +106,7 @@ runs:
     - name: Install worker-build
       shell: bash
       if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
-      run: cargo install worker-build
+      run: cargo install --locked worker-build
 
     - name: Compute build-cache key
       id: build_key

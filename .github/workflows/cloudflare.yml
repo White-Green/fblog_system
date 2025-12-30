@@ -25,4 +25,4 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build Cloudflare Workers frontend
-        run: cargo build -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown
+        run: cargo build --locked -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown
