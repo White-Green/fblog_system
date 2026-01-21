@@ -17,4 +17,5 @@
 !/rustfmt.toml
 !/snapshot.sh
 !/snapshot_diff.sh
+!/taplo.toml
 !/tsconfig.json
