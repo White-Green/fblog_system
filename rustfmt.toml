@@ -1,4 +1,4 @@
+group_imports = "One"
+imports_granularity = "Module"
 max_width = 150
 newline_style = "Unix"
-imports_granularity = "Module"
-group_imports = "One"

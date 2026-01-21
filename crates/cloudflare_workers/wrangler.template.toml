@@ -1,17 +1,17 @@
-name = "${PROJECT_NAME}"
-main = "build/worker/shim.mjs"
 compatibility_date = "2025-06-07"
+main = "build/worker/shim.mjs"
+name = "${PROJECT_NAME}"
 
-workers_dev = false
 keep_vars = true
 route = "${HOST_NAME}/*"
+workers_dev = false
 
 [build]
 command = "worker-build --release"
 
 [assets]
-directory = "./public/"
 binding = "ASSETS"
+directory = "./public/"
 
 [[r2_buckets]]
 binding = 'R2_BUCKET'
@@ -22,17 +22,17 @@ URL = "https://${HOST_NAME}"
 
 [[d1_databases]]
 binding = "BLOG_DB"
-database_name = "${PROJECT_NAME}-blog-db"
 database_id = "${D1_DATABASE_ID}"
+database_name = "${PROJECT_NAME}-blog-db"
 
 [[queues.producers]]
 binding = "JOB_QUEUE"
 queue = "${PROJECT_NAME}-job-queue"
 
 [[queues.consumers]]
-queue = "${PROJECT_NAME}-job-queue"
 max_batch_size = 10
 max_batch_timeout = 30
+queue = "${PROJECT_NAME}-job-queue"
 
 [observability.logs]
 enabled = true

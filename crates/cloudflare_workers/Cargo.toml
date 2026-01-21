@@ -1,8 +1,8 @@
 [package]
+authors = { workspace = true }
+edition = { workspace = true }
 name = "fblog_system_frontend_cloudflare_workers"
 version = { workspace = true }
-edition = { workspace = true }
-authors = { workspace = true }
 
 [package.metadata.release]
 release = false
