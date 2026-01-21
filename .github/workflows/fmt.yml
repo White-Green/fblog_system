@@ -25,7 +25,7 @@ jobs:
         id: taplo-version
         shell: bash
         run: |
-          V=$(curl https://index.crates.io/ta/pl/taplo-cli | jq -r .vers | tail -n 1)
+          V=$(curl https://index.crates.io/ta/pl/taplo-cli | jq -sr '.[-1].vers')
           echo "Latest version of taplo-cli: $V"
           echo "version=$V" >> $GITHUB_OUTPUT
 
@@ -44,4 +44,4 @@ jobs:
         run: cargo install taplo-cli@${{ steps.taplo-version.outputs.version }} --locked
 
       - name: taplo fmt
-        run: taplo fmt --check
+        run: ~/.cargo/bin/taplo fmt --check
