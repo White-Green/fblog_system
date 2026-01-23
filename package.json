@@ -16,7 +16,7 @@
   "description": "",
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
-    "astro": "^5.16.13",
+    "astro": "^5.16.15",
     "marked": "^17.0.1",
     "miniflare": "^4.20260120.0",
     "rehype": "^13.0.2",
@@ -26,12 +26,12 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0",
+    "unist-util-visit": "^5.1.0",
     "unist-util-visit-parents": "^6.0.2"
   },
   "packageManager": "pnpm@10.11.1",
   "devDependencies": {
-    "@biomejs/biome": "^2.3.11",
+    "@biomejs/biome": "^2.3.12",
     "wrangler": "^4.60.0"
   }
 }
