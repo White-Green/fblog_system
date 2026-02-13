@@ -464,7 +464,16 @@ fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
     })
 }
 
-#[cfg(not(feature = "test"))]
+#[cfg(all(feature = "activitypub", feature = "test"))]
+compile_error!("Cannot enable both activitypub and test features at the same time");
+
+#[cfg(all(feature = "test", feature = "preview"))]
+compile_error!("Cannot enable both test and preview features at the same time");
+
+#[cfg(all(feature = "preview", feature = "activitypub"))]
+compile_error!("Cannot enable both preview and activitypub features at the same time");
+
+#[cfg(feature = "activitypub")]
 #[event(fetch)]
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
     let state = setup_worker_state(&env)?;
@@ -499,6 +508,16 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
         .unwrap())
 }
 
+#[cfg(feature = "preview")]
+#[event(fetch)]
+async fn fetch(_req: HttpRequest, _env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
+    Ok(http::Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .body(Body::from("Not Found"))
+        .unwrap())
+}
+
+#[cfg(feature = "activitypub")]
 #[event(queue)]
 async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Context) -> worker::Result<()> {
     let state = setup_worker_state(&env)?;
@@ -510,4 +529,10 @@ async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Con
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "preview")]
+#[event(queue)]
+async fn queue_event(batch: worker::MessageBatch<QueueData>, env: Env, _ctx: Context) -> worker::Result<()> {
+    panic!("Preview queue event not implemented")
 }

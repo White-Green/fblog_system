@@ -15,8 +15,10 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [features]
-default = []
+default = ["activitypub"]
+activitypub = []
 test = []
+preview = []
 
 [dependencies]
 fblog_system_core = { workspace = true }
