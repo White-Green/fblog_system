@@ -38,7 +38,7 @@ runs:
         cp -R "${{ github.action_path }}/.github/workflows/deploy" ./.github/__tmp/fblog_system
       shell: bash
 
-    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers
+    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers/main
       if: ${{ inputs.target == 'cloudflare_workers' }}
       with:
         working_dir: ${{ github.action_path }}
