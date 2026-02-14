@@ -15,7 +15,9 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [features]
-default = []
+activitypub = []
+default = ["activitypub"]
+preview = []
 test = []
 
 [dependencies]

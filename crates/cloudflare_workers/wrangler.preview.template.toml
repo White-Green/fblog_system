@@ -1,0 +1,16 @@
+compatibility_date = "2025-06-07"
+main = "build/worker/shim.mjs"
+name = "${PROJECT_NAME}"
+
+preview_urls = true
+workers_dev = false
+
+[build]
+command = "worker-build --release --no-default-features --features preview"
+
+[assets]
+binding = "ASSETS"
+directory = "./public/"
+
+[observability.logs]
+enabled = true

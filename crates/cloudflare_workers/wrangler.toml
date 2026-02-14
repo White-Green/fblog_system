@@ -10,7 +10,7 @@ route = "local.test/*"
 workers_dev = false
 
 [build]
-command = "cargo install --locked worker-build && worker-build --features test"
+command = "cargo install --locked worker-build && worker-build --no-default-features --features test"
 
 [assets]
 binding = "ASSETS"

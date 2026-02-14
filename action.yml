@@ -4,6 +4,9 @@ inputs:
   target:
     description: "Deployment target"
     required: true
+  preview_name:
+    description: "Preview name for preview deployment"
+    required: false
   article_data_path:
     description: "Path to article data"
     required: true
@@ -30,6 +33,14 @@ inputs:
     description: "Cloudflare API Token"
     required: true
 
+outputs:
+  preview_url:
+    description: "Preview URL"
+    value: ${{ steps.preview.outputs.preview_url }}
+  events_jsonl:
+    description: "events.jsonl"
+    value: ${{ steps.preview.outputs.events_jsonl }}
+
 runs:
   using: "composite"
   steps:
@@ -38,10 +49,25 @@ runs:
         cp -R "${{ github.action_path }}/.github/workflows/deploy" ./.github/__tmp/fblog_system
       shell: bash
 
-    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers
-      if: ${{ inputs.target == 'cloudflare_workers' }}
+    - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers/main
+      if: ${{ inputs.target == 'cloudflare_workers' && inputs.preview_name == '' }}
       with:
         working_dir: ${{ github.action_path }}
+        article_data_path: ${{ inputs.article_data_path }}
+        user_data_path: ${{ inputs.user_data_path }}
+        build_data_path: ${{ inputs.build_data_path }}
+        project_name: ${{ inputs.project_name }}
+        site_url: ${{ inputs.site_url }}
+        public_key_path: ${{ inputs.public_key_path }}
+        cloudflare_account_id: ${{ inputs.cloudflare_account_id }}
+        cloudflare_api_token: ${{ inputs.cloudflare_api_token }}
+
+    - id: preview
+      uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers/preview
+      if: ${{ inputs.target == 'cloudflare_workers' && inputs.preview_name != '' }}
+      with:
+        working_dir: ${{ github.action_path }}
+        preview_name: ${{ inputs.preview_name }}
         article_data_path: ${{ inputs.article_data_path }}
         user_data_path: ${{ inputs.user_data_path }}
         build_data_path: ${{ inputs.build_data_path }}
