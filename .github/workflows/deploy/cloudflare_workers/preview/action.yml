@@ -69,7 +69,6 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        cache: 'pnpm'
 
     - name: Install Node dependencies
       shell: bash
@@ -124,12 +123,12 @@ runs:
       run: mv /tmp/fblog_system_build_cache ./target || true
 
     - name: Upload article snapshot
-      uses: cloudflare/wrangler-action@v3
-      with:
-        workingDirectory: ${{ steps.normalized.outputs.working_dir }}
-        accountId: ${{ inputs.cloudflare_account_id }}
-        apiToken: ${{ inputs.cloudflare_api_token }}
-        command: ./crates/cloudflare_workers/snapshot_diff_for_preview.sh ${{ inputs.project_name }}
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+      run: ./crates/cloudflare_workers/snapshot_diff_for_preview.sh ${{ inputs.project_name }}
 
     - name: Move built site
       shell: bash
@@ -142,14 +141,14 @@ runs:
       run: cat events.jsonl
 
     - name: Deploy to Cloudflare Workers
-      uses: cloudflare/wrangler-action@v3
-      with:
-        workingDirectory: ${{ steps.normalized.outputs.working_dir }}/crates/cloudflare_workers
-        accountId: ${{ inputs.cloudflare_account_id }}
-        apiToken: ${{ inputs.cloudflare_api_token }}
-        preCommands: |
-          ./setup_resources_for_preview.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
-        command: ./upload_preview.sh ${{ inputs.preview_name }}
+      shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+      run: |
+        ./crates/cloudflare_workers/setup_resources_for_preview.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
+        ./crates/cloudflare_workers/upload_preview.sh ${{ inputs.preview_name }}
 
     - name: Save build cache
       shell: bash

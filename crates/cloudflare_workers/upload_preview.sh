@@ -2,7 +2,10 @@
 set -euo pipefail
 
 PREVIEW_NAME="$1"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-WRANGLER_OUTPUT_FILE_PATH="$(pwd)/wrangler_deploy_output.ndjson" pnpm exec wrangler versions upload --preview-alias "$PREVIEW_NAME"
+cd "$SCRIPT_DIR"
 
-cat ./wrangler_deploy_output.ndjson | jq -r 'select(.type == "version-upload") | .preview_alias_url' > ./preview_url
+WRANGLER_OUTPUT_FILE_PATH="$SCRIPT_DIR/wrangler_deploy_output.ndjson" pnpm exec wrangler --cwd "$SCRIPT_DIR" versions upload --preview-alias "$PREVIEW_NAME"
+
+cat "$SCRIPT_DIR/wrangler_deploy_output.ndjson" | jq -r 'select(.type == "version-upload") | .preview_alias_url' > "$SCRIPT_DIR/preview_url"
