@@ -3,6 +3,7 @@ main = "build/worker/shim.mjs"
 name = "${PROJECT_NAME}"
 
 keep_vars = true
+preview_urls = true
 route = "${HOST_NAME}/*"
 workers_dev = false
 
