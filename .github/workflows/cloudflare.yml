@@ -26,3 +26,6 @@ jobs:
 
       - name: Build Cloudflare Workers frontend
         run: cargo build --locked -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown
+
+      - name: Build Cloudflare Workers frontend for preview
+        run: cargo build --locked -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown --no-default-features --features=preview
