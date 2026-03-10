@@ -16,7 +16,7 @@
   "description": "",
   "dependencies": {
     "@astrojs/mdx": "^4.3.14",
-    "astro": "^5.18.0",
+    "astro": "^5.18.1",
     "marked": "^17.0.4",
     "miniflare": "^4.20260305.0",
     "rehype": "^13.0.2",
