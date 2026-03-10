@@ -15,7 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@astrojs/mdx": "^4.3.13",
+    "@astrojs/mdx": "^4.3.14",
     "astro": "^5.18.0",
     "marked": "^17.0.4",
     "miniflare": "^4.20260305.0",
