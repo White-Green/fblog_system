@@ -11,11 +11,6 @@ updates:
         update-types:
           - "patch"
           - "minor"
-      major:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
   - package-ecosystem: cargo
     directory: "/"
     schedule:
@@ -27,11 +22,6 @@ updates:
         update-types:
           - "patch"
           - "minor"
-      major:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -43,8 +33,3 @@ updates:
         update-types:
           - "patch"
           - "minor"
-      major:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
