@@ -2,6 +2,7 @@
 !/.github
 !/contents
 !/crates
+!/deploy_scripts
 !/public
 !/src
 !/test_config
