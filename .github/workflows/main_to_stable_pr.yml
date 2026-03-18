@@ -1,0 +1,72 @@
+name: Create PR from main to stable
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: create-main-to-stable-pr
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse PR from main to stable
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const base = 'stable';
+            const head = 'main';
+
+            const compare = await github.rest.repos.compareCommits({
+              owner,
+              repo,
+              base,
+              head,
+            });
+
+            if (compare.data.ahead_by === 0) {
+              core.info('No new commits on main compared to stable. Skip PR creation.');
+              return;
+            }
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              base,
+              head: `${owner}:${head}`,
+              per_page: 1,
+            });
+
+            if (existing.data.length > 0) {
+              core.info(`PR already exists: #${existing.data[0].number}`);
+              return;
+            }
+
+            const created = await github.rest.pulls.create({
+              owner,
+              repo,
+              base,
+              head,
+              title: 'chore: merge main into stable',
+              body: [
+                'This PR was created automatically by GitHub Actions.',
+                '',
+                `- Trigger: \`${context.eventName}\``,
+                `- Source branch: \`${head}\``,
+                `- Target branch: \`${base}\``,
+                `- Compare: ${compare.data.html_url}`,
+              ].join('\n'),
+              maintainer_can_modify: true,
+            });
+
+            core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
