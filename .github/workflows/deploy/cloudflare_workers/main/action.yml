@@ -38,50 +38,16 @@ runs:
       run: |
         WORKING_DIR="${{ inputs.working_dir }}"
         echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
-        node -p 'const i="${{ inputs.site_url }}";`host_name=${new URL(i.match(/^https?:\/\//)? i : "https://"+i).hostname}`' >> $GITHUB_OUTPUT
-
-    - name: Prepare workspace
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        mkdir -p contents/articles contents/users public
-        cp -r ${{ inputs.article_data_path }}/* contents/articles/
-        cp -r ${{ inputs.user_data_path }}/* contents/users/
-        cp -r ${{ inputs.build_data_path }}/* public/
-
-    - name: Normalize HTML structure
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: |
-        shopt -s extglob
-        for dir in articles users; do
-          mkdir -p public/raw__/${dir}/html public/${dir}
-          mv public/${dir}/!(index.html) public/raw__/${dir}/html || true
-          mv public/${dir}/index.html public/${dir}/index.html || true
-          cd public/raw__/${dir}/html
-          find . -type f -name index.html -print0 | while IFS= read -r -d '' file; do mv "$file" "${file%/*}.html"; done
-          cd - >/dev/null
-        done
-
-    - name: Enable corepack
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: corepack enable
 
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '22'
 
-    - name: Install Node dependencies
+    - name: Enable corepack
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: pnpm install
-
-    - name: Build site
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: PUBLIC_KEY_FILE=${{ inputs.public_key_path }} SITE_URL="https://${{ steps.normalized.outputs.host_name }}" pnpm run build
+      run: corepack enable
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
@@ -125,36 +91,19 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv /tmp/fblog_system_build_cache ./target || true
 
-    - name: Upload article snapshot
-      uses: cloudflare/wrangler-action@v3
-      with:
-        workingDirectory: ${{ steps.normalized.outputs.working_dir }}
-        accountId: ${{ inputs.cloudflare_account_id }}
-        apiToken: ${{ inputs.cloudflare_api_token }}
-        preCommands: ./crates/cloudflare_workers/update_snapshot.sh ${{ inputs.project_name }}
-        command: r2 object put --remote "${{ inputs.project_name }}-blog-bucket/article_snapshot.zst" -f ./article_snapshot_new.zst
-
-    - name: Move built site
+    - name: Deploy Cloudflare Workers
       shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: mv dist crates/cloudflare_workers/public
-
-    - name: Check processed events
-      shell: bash
-      working-directory: ${{ steps.normalized.outputs.working_dir }}
-      run: cat events.jsonl
-
-    - name: Deploy to Cloudflare Workers
-      uses: cloudflare/wrangler-action@v3
-      with:
-        workingDirectory: ${{ steps.normalized.outputs.working_dir }}/crates/cloudflare_workers
-        accountId: ${{ inputs.cloudflare_account_id }}
-        apiToken: ${{ inputs.cloudflare_api_token }}
-        preCommands: |
-          ./setup_resources.sh "${{ inputs.project_name }}" "${{ steps.normalized.outputs.host_name }}"
-        command: deploy
-        postCommands: |
-          CF_ACCOUNT_ID=${{ inputs.cloudflare_account_id }} CF_API_TOKEN=${{ inputs.cloudflare_api_token }} ./send_to_queue.sh ${{ inputs.project_name }}-job-queue ${{ steps.normalized.outputs.working_dir }}/events.jsonl
+      env:
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+      run: |
+        bash "${{ steps.normalized.outputs.working_dir }}/deploy_scripts/cloudflare/deploy_prod.sh" \
+          "${{ inputs.article_data_path }}" \
+          "${{ inputs.user_data_path }}" \
+          "${{ inputs.build_data_path }}" \
+          "${{ inputs.project_name }}" \
+          "${{ inputs.site_url }}" \
+          "${{ inputs.public_key_path }}"
 
     - name: Save build cache
       shell: bash
