@@ -29,7 +29,9 @@ cd "$WORKING_DIR"
 ./crates/cloudflare_workers/snapshot_diff_for_preview.sh "$PROJECT_NAME"
 
 mv dist crates/cloudflare_workers/public
+echo "=== events ==="
 cat events.jsonl
+echo "=== events ==="
 
 cd crates/cloudflare_workers
 ./setup_resources_for_preview.sh "$PROJECT_NAME" "$HOST_NAME"

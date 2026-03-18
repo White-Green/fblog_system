@@ -29,9 +29,11 @@ cd "$WORKING_DIR"
 pnpm exec wrangler r2 object put --remote "${PROJECT_NAME}-blog-bucket/article_snapshot.zst" -f ./article_snapshot_new.zst
 
 mv dist crates/cloudflare_workers/public
+echo "=== events ==="
 cat events.jsonl
+echo "=== events ==="
 
 cd crates/cloudflare_workers
 ./setup_resources.sh "$PROJECT_NAME" "$HOST_NAME"
-pnpm exec wrangler deploy
+pnpm exec wrangler --cwd "$(pwd)" deploy
 CF_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" CF_API_TOKEN="$CLOUDFLARE_API_TOKEN" ./send_to_queue.sh "${PROJECT_NAME}-job-queue" "$WORKING_DIR/events.jsonl"
