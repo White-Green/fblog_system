@@ -22,7 +22,8 @@ HOST_NAME=$(node -e 'const i=process.argv[1]; console.log(new URL(/^https?:\/\//
   "$USER_DATA_PATH" \
   "$BUILD_DATA_PATH" \
   "$SITE_URL" \
-  "$PUBLIC_KEY_PATH"
+  "$PUBLIC_KEY_PATH" \
+  "false"
 
 cd "$WORKING_DIR"
 
