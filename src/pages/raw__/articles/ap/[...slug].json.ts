@@ -48,7 +48,11 @@ export async function GET({params, props, request}) {
         .use(rehypeStringify);
 
     const vFile = await processor.process(article.body);
-    const contentHtml = `<a href="${baseUrl}/articles/${slug}"><strong>【${article.data.title}】</strong></a>${String(vFile)}`;
+    const trimmedTitle = article.data.title?.trim();
+    const titleHtml = trimmedTitle
+        ? `<a href="${baseUrl}/articles/${slug}"><strong>【${trimmedTitle}】</strong></a>`
+        : '';
+    const contentHtml = `${titleHtml}${String(vFile)}`;
 
     // Extract image references from the collected data
     const attachments = [];
