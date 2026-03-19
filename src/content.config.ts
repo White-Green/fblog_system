@@ -4,8 +4,8 @@ import {defineCollection, z} from 'astro:content';
 const articles = defineCollection({
     loader: glob({base: './contents/articles', pattern: '**/*.md'}),
     schema: z.object({
-        title: z.string(),
-        description: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
         pubDate: z.string().datetime({offset: true}),
         updatedDate: z.string().datetime({offset: true}).optional(),
         heroImage: z.string().optional(),
