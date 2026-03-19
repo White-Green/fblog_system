@@ -4,7 +4,7 @@ set -eu
 
 PROJECT_NAME=$1
 
-if pnpm exec wrangler r2 object get --remote "$PROJECT_NAME-blog-bucket/article_snapshot.zst" -f ./article_snapshot_old.zst; then
+if pnpm exec wrangler r2 object get --remote "$PROJECT_NAME-blog-bucket/article_snapshot_zst" -f ./article_snapshot_old.zst; then
   zstd -d ./article_snapshot_old.zst -o ./article_snapshot_old
   cat ./article_snapshot_old
 else
