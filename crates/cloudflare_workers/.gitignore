@@ -1,1 +1,14 @@
-public
+/*
+!/migrations
+!/src
+!/.gitignore
+!/Cargo.toml
+!/send_to_queue.sh
+!/setup_resources.sh
+!/setup_resources_for_preview.sh
+!/snapshot_diff_for_preview.sh
+!/update_snapshot.sh
+!/upload_preview.sh
+!/wrangler.preview.template.toml
+!/wrangler.template.toml
+!/wrangler.toml
