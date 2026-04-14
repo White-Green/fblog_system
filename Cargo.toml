@@ -11,9 +11,9 @@ resolver = "2"
 fblog_system_core = { path = "crates/core" }
 
 arrayvec = { features = ["serde"], version = "0.7.6" }
-axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.8" }
+axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.9" }
 base64 = "0.22.1"
-bitflags = "2.10.0"
+bitflags = "2.11.1"
 bytes = "1.11.1"
 chrono = { features = ["serde"], version = "0.4.44" }
 console_error_panic_hook = { version = "0.1.7" }
@@ -23,7 +23,7 @@ http = "1.4.0"
 http-body = "1.0.1"
 http-body-util = "0.1.3"
 mime = "0.3.17"
-rand = "0.10.0"
+rand = "0.10.1"
 regex = "1.12.3"
 reqwest = { features = ["json", "query", "stream"], version = "0.13.2" }
 ring = { features = ["wasm32_unknown_unknown_js"], version = "0.17.14" }
