@@ -29,10 +29,18 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-test-', runner.os) }}
+
+      - run: cargo fetch --locked
 
       - name: Start caddy
         run: docker compose -f test_config/compose.yml up -d caddy
@@ -71,3 +79,142 @@ jobs:
           name: e2e-test-logs
           path: logs/
           retention-days: 7
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Start caddy
+        run: docker compose -f test_config/compose.yml up -d caddy
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-clippy-', runner.os) }}
+
+      - run: cargo fetch --locked
+
+      - name: Setup test data
+        run: mv test_config/test_data/e2e_test/* .
+
+      - name: Build site
+        run: pnpm run build
+        env:
+          PUBLIC_KEY_FILE: test_config/public-key-for-test.pem
+          SITE_URL: https://blog.test
+
+      - name: Fix certificate permissions
+        run: |
+          sudo chown -R $(id -u):$(id -g) test_config/caddy-data
+          sudo chmod -R a+rX test_config/caddy-data
+
+      - name: cargo clippy
+        run: cargo clippy --locked --workspace --tests -- -D warnings
+
+      - name: Stop caddy
+        if: always()
+        run: docker compose -f test_config/compose.yml down
+
+  cloudflare_wasm_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-cloudflare-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-cloudflare-', runner.os) }}
+
+      - run: cargo fetch --locked
+
+      - name: Build Cloudflare Workers frontend
+        run: cargo build --locked -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown
+
+      - name: Build Cloudflare Workers frontend for preview
+        run: cargo build --locked -p fblog_system_frontend_cloudflare_workers --target=wasm32-unknown-unknown --no-default-features --features=preview
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: cargo fmt
+        run: cargo +nightly fmt --check --all
+
+  taplo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: taplo-cli version
+        id: taplo-version
+        shell: bash
+        run: |
+          V=$(curl https://index.crates.io/ta/pl/taplo-cli | jq -r 'select(.yanked == false) | .vers' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort --reverse --version-sort | head --lines=1)
+          echo "Latest version of taplo-cli: $V"
+          echo "version=$V" >> $GITHUB_OUTPUT
+
+      - name: cache taplo-cli binary
+        id: taplo-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/taplo
+          key: ${{ runner.os }}-taplo-cli-${{ steps.taplo-version.outputs.version }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.taplo-cache.outputs.cache-hit != 'true'
+
+      - name: install taplo-cli
+        if: steps.taplo-cache.outputs.cache-hit != 'true'
+        run: cargo install taplo-cli@${{ steps.taplo-version.outputs.version }} --locked
+
+      - name: taplo fmt
+        run: ~/.cargo/bin/taplo fmt --check
