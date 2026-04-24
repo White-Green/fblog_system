@@ -18,7 +18,7 @@
     "@astrojs/mdx": "^5.0.4",
     "astro": "^6.1.9",
     "marked": "^17.0.6",
-    "miniflare": "^4.20260421.0",
+    "miniflare": "^4.20260424.0",
     "rehype": "^13.0.2",
     "rehype-stringify": "^10.0.1",
     "remark-breaks": "^4.0.0",
@@ -32,6 +32,6 @@
   "packageManager": "pnpm@10.11.1",
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
-    "wrangler": "^4.84.1"
+    "wrangler": "^4.85.0"
   }
 }
