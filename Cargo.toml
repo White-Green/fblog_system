@@ -33,7 +33,7 @@ rust-ini = "0.21.3"
 serde = { features = ["derive"], version = "1.0.228" }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
-tokio = { features = ["full"], version = "1.52.1" }
+tokio = { features = ["full"], version = "1.52.2" }
 tower = "0.5.3"
 tower-http = { features = ["trace"], version = "0.6.8" }
 tower-service = "0.3.3"
