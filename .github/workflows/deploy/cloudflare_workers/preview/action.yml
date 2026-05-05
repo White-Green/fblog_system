@@ -51,7 +51,7 @@ runs:
         echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
 
     - name: Setup Node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '22'
 
@@ -74,7 +74,7 @@ runs:
 
     - id: worker_build_binary_cache
       name: Restore worker-build cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
         path: ~/.cargo/bin/worker-build
@@ -92,7 +92,7 @@ runs:
         echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
     - name: Restore build cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: /tmp/fblog_system_build_cache
