@@ -31,7 +31,7 @@ ring-compat = "0.8.0"
 rsa = { features = ["pem", "sha2"], version = "0.9.10" }
 rust-ini = "0.21.3"
 serde = { features = ["derive"], version = "1.0.228" }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 thiserror = "2.0.18"
 tokio = { features = ["full"], version = "1.52.3" }
 tower = "0.5.3"
