@@ -25,12 +25,14 @@ fblog_system_core = { workspace = true }
 
 arrayvec = { workspace = true }
 axum = { workspace = true }
+base64 = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 console_error_panic_hook = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+reqwest = { workspace = true }
 ring = { workspace = true }
 rsa = { workspace = true }
 serde = { workspace = true }
