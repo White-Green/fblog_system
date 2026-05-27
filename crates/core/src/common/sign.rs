@@ -4,9 +4,9 @@ use axum::http::header::{DATE, HOST};
 use base64::Engine;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use digest::{FixedOutput, Update};
 use ring_compat::digest::Sha256;
 use ring_compat::signature::{SignatureEncoding, Signer};
+use rsa::signature::digest::{FixedOutput, Update};
 
 pub fn sign(mut request: Request<Bytes>, key_id: &str, key: &RSASHA2SigningKey, date: DateTime<Utc>) -> Request<Bytes> {
     if request.headers().get(HOST).is_none() {
