@@ -4,8 +4,10 @@ use axum::http::Request;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use chrono::Utc;
+#[cfg(feature = "activitypub")]
 use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
-use fblog_system_core::route::router;
+#[cfg(feature = "activitypub")]
+use fblog_system_core::route::{admin_router, router};
 use fblog_system_core::traits::*;
 use futures::Stream;
 use futures::stream::TryStreamExt;
@@ -16,12 +18,18 @@ use std::fmt::Display;
 use std::mem;
 use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
+#[cfg(feature = "activitypub")]
 use tower_service::Service;
 use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
-use worker::{Context, Env, HttpRequest, MessageExt, event};
+#[cfg(feature = "activitypub")]
+use worker::MessageExt;
+use worker::{Context, Env, HttpRequest, event};
+
+#[cfg(feature = "activitypub")]
+mod admin_auth;
 
 #[cfg(feature = "test")]
 mod tests;
@@ -75,6 +83,12 @@ impl fblog_system_core::traits::Env for WorkerState {
     }
     fn signing_key(&self) -> &RSASHA2SigningKey {
         &self.signing_key
+    }
+}
+
+impl AdminProvider for WorkerState {
+    async fn admin_dashboard(&self) -> AdminDashboard {
+        AdminDashboard::default()
     }
 }
 
@@ -476,6 +490,14 @@ compile_error!("Cannot enable both preview and activitypub features at the same 
 #[cfg(feature = "activitypub")]
 #[event(fetch)]
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
+    if admin_auth::is_admin_path(req.uri().path()) {
+        if let Err(error) = admin_auth::authenticate_admin_request(&req, &env).await {
+            tracing::warn!(error = %error.log_message(), "admin request rejected");
+            return Ok(admin_auth::forbidden_response());
+        }
+        let state = setup_worker_state(&env)?;
+        return Ok(admin_router(state.clone()).with_state::<()>(state).call(req).await?);
+    }
     let state = setup_worker_state(&env)?;
     Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
 }

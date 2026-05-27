@@ -15,6 +15,7 @@ worker-build = "0.8.3"
 fblog_system_core = { path = "crates/core" }
 
 arrayvec = { features = ["serde"], version = "0.7.6" }
+askama = "0.16.0"
 axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.9" }
 base64 = "0.22.1"
 bitflags = "2.13.0"

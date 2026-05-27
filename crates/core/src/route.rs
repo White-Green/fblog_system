@@ -1,7 +1,8 @@
-use crate::traits::{ArticleProvider, Env, HTTPClient, Queue, UserProvider};
+use crate::traits::{AdminProvider, ArticleProvider, Env, HTTPClient, Queue, UserProvider};
 use axum::Router;
 use axum::routing::{get, post};
 
+mod admin;
 mod articles;
 mod users;
 mod well_known;
@@ -20,5 +21,15 @@ where
         .route("/events/articles/create/{*slug}", get(articles::events::article_create_events_get::<E>))
         .route("/events/articles/update/{*slug}", get(articles::events::article_update_events_get::<E>))
         .route("/events/articles/delete/{*slug}", get(articles::events::article_delete_events_get::<E>))
+        .with_state(state)
+}
+
+pub fn admin_router<E, S>(state: E) -> Router<S>
+where
+    E: AdminProvider + Send + Sync + Clone + 'static,
+{
+    Router::<E>::new()
+        .route("/admin", get(admin::admin_get::<E>))
+        .route("/admin/", get(admin::admin_get::<E>))
         .with_state(state)
 }
