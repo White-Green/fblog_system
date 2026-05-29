@@ -1,4 +1,5 @@
 use axum::body::Body;
+use axum::extract::Request;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::Utc;
@@ -6,7 +7,8 @@ use http::StatusCode;
 use http::header::CONTENT_TYPE;
 use ring::signature::{RSA_PKCS1_2048_8192_SHA256, RsaPublicKeyComponents};
 use serde::Deserialize;
-use worker::{Env, HttpRequest};
+use worker::Env;
+use worker::send::SendFuture;
 
 const ACCESS_JWT_HEADER: &str = "cf-access-jwt-assertion";
 const ACCESS_EMAIL_HEADER: &str = "cf-access-authenticated-user-email";
@@ -50,6 +52,12 @@ struct AdminAuthConfig {
     admin_email: String,
     team_domain: String,
     policy_aud: String,
+}
+
+pub struct AdminAuthRequest {
+    config: AdminAuthConfig,
+    header_email: Option<String>,
+    token: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -109,27 +117,33 @@ impl Audience {
     }
 }
 
-pub fn is_admin_path(path: &str) -> bool {
-    path == "/admin" || path.starts_with("/admin/")
-}
-
-pub async fn authenticate_admin_request(req: &HttpRequest, env: &Env) -> Result<(), AdminAuthError> {
+pub fn read_admin_auth_request(req: &Request, env: &Env) -> Result<AdminAuthRequest, AdminAuthError> {
     let config = AdminAuthConfig::from_env(env)?;
     let token = req
         .headers()
         .get(ACCESS_JWT_HEADER)
         .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
         .ok_or(AdminAuthError::MissingJwt)?;
+    let header_email = req
+        .headers()
+        .get(ACCESS_EMAIL_HEADER)
+        .map(|value| value.to_str().map(str::to_owned))
+        .transpose()
+        .map_err(|_| AdminAuthError::InvalidEmailHeader)?;
 
-    let claims = validate_access_jwt(token, &config).await?;
+    Ok(AdminAuthRequest { config, header_email, token })
+}
+
+pub async fn authenticate_admin_request(request: AdminAuthRequest) -> Result<(), AdminAuthError> {
+    let claims = validate_access_jwt(&request.token, &request.config).await?;
     let email = claims.email.as_deref().ok_or(AdminAuthError::InvalidJwt("missing email claim"))?;
-    if !emails_match(email, &config.admin_email) {
+    if !emails_match(email, &request.config.admin_email) {
         return Err(AdminAuthError::UnauthorizedEmail);
     }
 
-    if let Some(header_email) = req.headers().get(ACCESS_EMAIL_HEADER) {
-        let header_email = header_email.to_str().map_err(|_| AdminAuthError::InvalidEmailHeader)?;
-        if !emails_match(header_email, email) {
+    if let Some(header_email) = request.header_email {
+        if !emails_match(&header_email, email) {
             return Err(AdminAuthError::InvalidEmailHeader);
         }
     }
@@ -205,11 +219,14 @@ fn decode_json<T: for<'de> Deserialize<'de>>(encoded: &str) -> Result<T, AdminAu
 
 async fn fetch_access_certs(team_domain: &str) -> Result<AccessCerts, AdminAuthError> {
     let url = format!("{team_domain}/cdn-cgi/access/certs");
-    let response = reqwest::get(url).await.map_err(AdminAuthError::FetchCerts)?;
-    if !response.status().is_success() {
-        return Err(AdminAuthError::CertsStatus(response.status()));
-    }
-    response.json::<AccessCerts>().await.map_err(AdminAuthError::FetchCerts)
+    SendFuture::new(async move {
+        let response = reqwest::get(url).await.map_err(AdminAuthError::FetchCerts)?;
+        if !response.status().is_success() {
+            return Err(AdminAuthError::CertsStatus(response.status()));
+        }
+        response.json::<AccessCerts>().await.map_err(AdminAuthError::FetchCerts)
+    })
+    .await
 }
 
 fn verify_claims(claims: &AccessClaims, config: &AdminAuthConfig) -> Result<(), AdminAuthError> {
