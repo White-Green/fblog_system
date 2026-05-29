@@ -1,7 +1,13 @@
 use arrayvec::ArrayVec;
 use axum::body::Body;
-use axum::http::Request;
+#[cfg(feature = "activitypub")]
+use axum::extract::Request as AxumRequest;
+use axum::http::Request as HttpBodyRequest;
+#[cfg(feature = "activitypub")]
+use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
+#[cfg(feature = "activitypub")]
+use axum::response::Response as AxumResponse;
 use bytes::Bytes;
 use chrono::Utc;
 #[cfg(feature = "activitypub")]
@@ -435,7 +441,7 @@ impl Queue for WorkerState {
 
 impl HTTPClient for WorkerState {
     type Error = reqwest::Error;
-    async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
+    async fn request(&self, request: HttpBodyRequest<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
         let req = reqwest::Request::try_from(request)?;
         worker::send::SendFuture::new(async move {
             let mut resp = reqwest::Client::new().execute(req).await?;
@@ -490,16 +496,29 @@ compile_error!("Cannot enable both preview and activitypub features at the same 
 #[cfg(feature = "activitypub")]
 #[event(fetch)]
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
-    if admin_auth::is_admin_path(req.uri().path()) {
-        if let Err(error) = admin_auth::authenticate_admin_request(&req, &env).await {
-            tracing::warn!(error = %error.log_message(), "admin request rejected");
-            return Ok(admin_auth::forbidden_response());
-        }
-        let state = setup_worker_state(&env)?;
-        return Ok(admin_router(state.clone()).with_state::<()>(state).call(req).await?);
-    }
     let state = setup_worker_state(&env)?;
-    Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
+    let auth_state = state.clone();
+    let admin = admin_router(state.clone()).layer(middleware::from_fn(move |req, next| {
+        let auth_state = auth_state.clone();
+        async move { require_admin_access(auth_state, req, next).await }
+    }));
+    Ok(router(state.clone()).nest("/admin", admin).with_state::<()>(state).call(req).await?)
+}
+
+#[cfg(feature = "activitypub")]
+async fn require_admin_access(state: WorkerState, req: AxumRequest, next: Next) -> AxumResponse {
+    let auth_request = match admin_auth::read_admin_auth_request(&req, &state.env) {
+        Ok(auth_request) => auth_request,
+        Err(error) => {
+            tracing::warn!(error = %error.log_message(), "admin request rejected");
+            return admin_auth::forbidden_response();
+        }
+    };
+    if let Err(error) = admin_auth::authenticate_admin_request(auth_request).await {
+        tracing::warn!(error = %error.log_message(), "admin request rejected");
+        return admin_auth::forbidden_response();
+    }
+    next.run(req).await
 }
 
 #[cfg(feature = "test")]

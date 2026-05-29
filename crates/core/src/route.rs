@@ -28,8 +28,5 @@ pub fn admin_router<E, S>(state: E) -> Router<S>
 where
     E: AdminProvider + Send + Sync + Clone + 'static,
 {
-    Router::<E>::new()
-        .route("/admin", get(admin::admin_get::<E>))
-        .route("/admin/", get(admin::admin_get::<E>))
-        .with_state(state)
+    Router::<E>::new().route("/", get(admin::admin_get::<E>)).with_state(state)
 }
