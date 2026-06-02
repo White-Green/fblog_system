@@ -13,7 +13,7 @@ fblog_system_core = { path = "crates/core" }
 arrayvec = { features = ["serde"], version = "0.7.6" }
 axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.9" }
 base64 = "0.22.1"
-bitflags = "2.11.1"
+bitflags = "2.12.1"
 bytes = "1.11.1"
 chrono = { features = ["serde"], version = "0.4.44" }
 console_error_panic_hook = { version = "0.1.7" }
