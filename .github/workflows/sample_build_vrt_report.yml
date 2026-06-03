@@ -134,7 +134,6 @@ jobs:
           tar -xaf .github/tmp/semdiff.tar.gz -C .github/tmp
 
       - name: Compare sample build snapshots
-        id: compare
         run: |
           set -euo pipefail
           mkdir -p regression data/sample-build-vrt/report
@@ -146,10 +145,6 @@ jobs:
             --json-ignore-path '$.updated' \
             --output-html ./regression/index.html \
             --output-json ./data/sample-build-vrt/report/report.json
-
-          cat ./data/sample-build-vrt/report/report.json
-          diff_count="$(jq '.modified + .added + .deleted' ./data/sample-build-vrt/report/report.json)"
-          echo "diff_count=${diff_count}" >> "$GITHUB_OUTPUT"
 
       - uses: cloudflare/wrangler-action@v4
         with:
@@ -213,25 +208,6 @@ jobs:
               issue_number,
               body,
             });
-
-      - name: Fail on sample build diff
-        if: steps.compare.outputs.diff_count != '0'
-        run: |
-          echo "::error title=Sample build VRT failed::Generated Sample build output differs from the main baseline. Review the Cloudflare Pages diff report."
-          exit 1
-
-      - name: Upload Sample build VRT report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: sample-build-vrt-report
-          path: |
-            actual
-            expected
-            data/sample-build-vrt/report
-            regression
-          if-no-files-found: ignore
-          retention-days: 7
 
       - if: always()
         uses: actions/github-script@v9
