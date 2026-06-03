@@ -44,7 +44,7 @@ jobs:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: "4.91.0"
           command: |
-            r2 object put ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved.tar.zst --file ./saved.tar.zst --remote
+            r2 object put ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file ./saved.tar.zst --remote
 
       - if: always()
         uses: actions/github-script@v9
@@ -106,7 +106,7 @@ jobs:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: "4.91.0"
           command: |
-            r2 object get ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved.tar.zst --file main-saved.tar.zst --remote
+            r2 object get ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file main-saved.tar.zst --remote
 
       - name: Unpack baseline
         run: |
