@@ -5,6 +5,10 @@ on:
     workflows: ["Sample build VRT Capture"]
     types: [completed]
 
+env:
+  VRT_WRANGLER_VERSION: "4.91.0"
+  SEMDIFF_VERSION: "v0.4.2"
+
 jobs:
   publish_baseline:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == github.event.repository.default_branch
@@ -42,7 +46,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          wranglerVersion: "4.91.0"
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
             r2 object put ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file ./saved.tar.zst --remote
 
@@ -104,7 +108,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          wranglerVersion: "4.91.0"
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
             r2 object get ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file main-saved.tar.zst --remote
 
@@ -122,12 +126,7 @@ jobs:
       - name: Install semdiff
         run: |
           set -euo pipefail
-          release="$(curl -fsSL "https://api.github.com/repos/White-Green/semdiff/releases/latest")"
-          download_url="$(echo "${release}" | jq -r '.assets[] | select(.name | contains("x86_64-unknown-linux")) | .browser_download_url' | head -n 1)"
-          if [ -z "${download_url}" ]; then
-            echo "Could not find semdiff Linux release asset" >&2
-            exit 1
-          fi
+          download_url="https://github.com/White-Green/semdiff/releases/download/${SEMDIFF_VERSION}/semdiff-x86_64-unknown-linux-musl.tar.gz"
 
           mkdir -p .github/tmp
           curl -fsSL "${download_url}" --output .github/tmp/semdiff.tar.gz
@@ -150,7 +149,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          wranglerVersion: "4.91.0"
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
             pages deploy --project-name ${{ vars.VRT_CF_PAGES_PROJECT_NAME }} --branch pr-${{ github.event.workflow_run.pull_requests[0].number }} ./regression
 

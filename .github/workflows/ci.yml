@@ -23,6 +23,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - id: worker_build
+        name: Load worker-build version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --format-version 1 | jq -er '.metadata["cargo-binaries"]["worker-build"]')"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: Cache cargo
         uses: actions/cache@v5
         with:
@@ -39,6 +47,17 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-test-', runner.os) }}
+
+      - id: worker_build_binary_cache
+        name: Restore worker-build cache
+        uses: actions/cache@v5
+        with:
+          key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
+          path: ~/.cargo/bin/worker-build
+
+      - name: Install worker-build
+        if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
+        run: cargo install --locked "worker-build@${{ steps.worker_build.outputs.version }}" --force
 
       - run: cargo fetch --locked
 
@@ -194,27 +213,27 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: taplo-cli version
-        id: taplo-version
+      - uses: dtolnay/rust-toolchain@stable
+
+      - id: taplo_cli
+        name: Load taplo-cli version
         shell: bash
         run: |
-          V=$(curl https://index.crates.io/ta/pl/taplo-cli | jq -r 'select(.yanked == false) | .vers' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort --reverse --version-sort | head --lines=1)
-          echo "Latest version of taplo-cli: $V"
-          echo "version=$V" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --format-version 1 | jq -er '.metadata["cargo-binaries"]["taplo-cli"]')"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
-      - name: cache taplo-cli binary
-        id: taplo-cache
+      - id: taplo-cache
+        name: Restore taplo-cli cache
         uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/taplo
-          key: ${{ runner.os }}-taplo-cli-${{ steps.taplo-version.outputs.version }}
-
-      - uses: dtolnay/rust-toolchain@stable
-        if: steps.taplo-cache.outputs.cache-hit != 'true'
+          key: ${{ runner.os }}-taplo-cli-${{ steps.taplo_cli.outputs.version }}
 
       - name: install taplo-cli
         if: steps.taplo-cache.outputs.cache-hit != 'true'
-        run: cargo install taplo-cli@${{ steps.taplo-version.outputs.version }} --locked
+        run: |
+          cargo install --locked "taplo-cli@${{ steps.taplo_cli.outputs.version }}" --force
 
       - name: taplo fmt
         run: ~/.cargo/bin/taplo fmt --check
