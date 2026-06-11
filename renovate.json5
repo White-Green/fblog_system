@@ -3,6 +3,8 @@
 
   extends: ["config:recommended"],
 
+  minimumReleaseAge: "3 days",
+
   packageRules: [
     {
       description: "Group npm and Cargo package patch/minor updates into one PR.",
@@ -35,9 +37,10 @@
 
     // wranglerVersion used by cloudflare/wrangler-action for VRT publishing.
     {
-      customType: "regex",
+      customType: "jsonata",
+      fileFormat: "yaml",
       managerFilePatterns: ["/^\\.github\\/workflows\\/sample_build_vrt_report\\.yml$/"],
-      matchStrings: ['VRT_WRANGLER_VERSION:\\s*"(?<currentValue>[^"]+)"'],
+      matchStrings: ['{ "depName": "wrangler", "currentValue": env.VRT_WRANGLER_VERSION }'],
       depNameTemplate: "wrangler",
       datasourceTemplate: "npm",
       versioningTemplate: "npm",
@@ -46,9 +49,10 @@
 
     // semdiff release tag used by the VRT report workflow.
     {
-      customType: "regex",
+      customType: "jsonata",
+      fileFormat: "yaml",
       managerFilePatterns: ["/^\\.github\\/workflows\\/sample_build_vrt_report\\.yml$/"],
-      matchStrings: ['SEMDIFF_VERSION:\\s*"(?<currentValue>v?[^"]+)"'],
+      matchStrings: ['{ "depName": "semdiff", "currentValue": env.SEMDIFF_VERSION }'],
       depNameTemplate: "semdiff",
       packageNameTemplate: "White-Green/semdiff",
       datasourceTemplate: "github-releases",
