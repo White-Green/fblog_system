@@ -1,0 +1,231 @@
+name: Sample build VRT Report
+
+on:
+  workflow_run:
+    workflows: ["Sample build VRT Capture"]
+    types: [completed]
+
+env:
+  VRT_WRANGLER_VERSION: "4.91.0"
+  SEMDIFF_VERSION: "v0.4.2"
+
+jobs:
+  publish_baseline:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      statuses: write
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.workflow_run.head_sha;
+
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha,
+              state: "pending",
+              context: "sample-build-vrt-report / publish_baseline",
+              target_url: process.env.RUN_URL,
+            });
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sample-build-vrt-data
+          path: ./actual
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Archive baseline
+        run: tar -I 'zstd -19' -cf saved.tar.zst -C ./actual .
+
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
+          command: |
+            r2 object put ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file ./saved.tar.zst --remote
+
+      - if: always()
+        uses: actions/github-script@v9
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.workflow_run.head_sha;
+
+            const mapping = {
+              success: "success",
+              failure: "failure",
+              cancelled: "error",
+            };
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha,
+              state: mapping[process.env.JOB_STATUS],
+              context: "sample-build-vrt-report / publish_baseline",
+              target_url: process.env.RUN_URL,
+            });
+
+  pr_checks:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.workflow_run.head_sha;
+
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha,
+              state: "pending",
+              context: "sample-build-vrt-report / pr_checks",
+              target_url: process.env.RUN_URL,
+            });
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sample-build-vrt-data
+          path: ./actual
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - continue-on-error: true
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
+          command: |
+            r2 object get ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file main-saved.tar.zst --remote
+
+      - name: Unpack baseline
+        run: |
+          set -euo pipefail
+          if [ ! -f main-saved.tar.zst ]; then
+            echo "::error title=Sample build VRT baseline is missing::Run Sample build VRT Capture on main once to publish the baseline."
+            exit 1
+          fi
+
+          mkdir -p expected
+          tar -xaf main-saved.tar.zst -C expected
+
+      - name: Install semdiff
+        run: |
+          set -euo pipefail
+          download_url="https://github.com/White-Green/semdiff/releases/download/${SEMDIFF_VERSION}/semdiff-x86_64-unknown-linux-musl.tar.gz"
+
+          mkdir -p .github/tmp
+          curl -fsSL "${download_url}" --output .github/tmp/semdiff.tar.gz
+          tar -xaf .github/tmp/semdiff.tar.gz -C .github/tmp
+
+      - name: Compare sample build snapshots
+        run: |
+          set -euo pipefail
+          mkdir -p regression data/sample-build-vrt/report
+
+          .github/tmp/semdiff/semdiff \
+            ./expected \
+            ./actual \
+            --json-ignore-object-key-order \
+            --json-ignore-path '$.updated' \
+            --output-html ./regression/index.html \
+            --output-json ./data/sample-build-vrt/report/report.json
+
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
+          command: |
+            pages deploy --project-name ${{ vars.VRT_CF_PAGES_PROJECT_NAME }} --branch pr-${{ github.event.workflow_run.pull_requests[0].number }} ./regression
+
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const report = JSON.parse(fs.readFileSync("./data/sample-build-vrt/report/report.json", "utf8"));
+            const issue_number = context.payload.workflow_run.pull_requests[0].number;
+            const marker = "<!-- sample-build-vrt-diff-marker -->";
+
+            const body = `${marker}
+            ## Sample build Visual Regression Test Summary
+
+            | Category  | Count               |
+            |-----------|---------------------|
+            | Unchanged | ${report.unchanged} |
+            | Modified  | ${report.modified}  |
+            | Added     | ${report.added}     |
+            | Deleted   | ${report.deleted}   |
+
+            [Diff Report](https://pr-${issue_number}.${{ vars.VRT_CF_PAGES_PROJECT_NAME }}.pages.dev/)
+            `;
+
+            const { owner, repo } = context.repo;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const oldComments = comments.filter((comment) => comment.body.includes(marker));
+            for (const { node_id: nodeId } of oldComments) {
+              const mutation = `
+                mutation($subjectId: ID!) {
+                  minimizeComment(input: {
+                    subjectId: $subjectId,
+                    classifier: OUTDATED
+                  }) {
+                    minimizedComment {
+                      isMinimized
+                      minimizedReason
+                    }
+                  }
+                }
+              `;
+
+              await github.graphql(mutation, { subjectId: nodeId });
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+
+      - if: always()
+        uses: actions/github-script@v9
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.workflow_run.head_sha;
+
+            const mapping = {
+              success: "success",
+              failure: "failure",
+              cancelled: "error",
+            };
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha,
+              state: mapping[process.env.JOB_STATUS],
+              context: "sample-build-vrt-report / pr_checks",
+              target_url: process.env.RUN_URL,
+            });

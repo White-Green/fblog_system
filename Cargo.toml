@@ -7,15 +7,19 @@ version = "0.1.0"
 members = ["crates/cloudflare_workers", "crates/core", "crates/in_memory/server", "tests"]
 resolver = "2"
 
+[workspace.metadata.cargo-binaries]
+taplo-cli = "0.10.0"
+worker-build = "0.8.3"
+
 [workspace.dependencies]
 fblog_system_core = { path = "crates/core" }
 
 arrayvec = { features = ["serde"], version = "0.7.6" }
 axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.9" }
 base64 = "0.22.1"
-bitflags = "2.11.1"
+bitflags = "2.13.0"
 bytes = "1.11.1"
-chrono = { features = ["serde"], version = "0.4.44" }
+chrono = { features = ["serde"], version = "0.4.45" }
 console_error_panic_hook = { version = "0.1.7" }
 digest = "0.11.3"
 futures = "0.3.31"

@@ -1,0 +1,51 @@
+name: Sample build VRT Capture
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Capture sample build
+        run: bash ./.github/scripts/capture_sample_build_vrt_data.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sample-build-vrt-data
+          path: dist
+
+      - uses: actions/github-script@v9
+        env:
+          SUCCESSOR_NAME: ${{ github.event_name == 'pull_request' && 'pr_checks' || 'publish_baseline' }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.payload.pull_request?.head?.sha || context.sha;
+
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha,
+              state: "pending",
+              context: `sample-build-vrt-report / ${process.env.SUCCESSOR_NAME}`,
+            });

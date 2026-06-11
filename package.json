@@ -15,10 +15,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@astrojs/mdx": "^5.0.6",
-    "astro": "^6.3.8",
-    "marked": "^17.0.6",
-    "miniflare": "^4.20260526.0",
+    "@astrojs/mdx": "^6.0.2",
+    "astro": "^6.4.4",
+    "marked": "^18.0.5",
+    "miniflare": "^4.20260603.0",
     "rehype": "^13.0.2",
     "rehype-stringify": "^10.0.1",
     "remark-breaks": "^4.0.0",
@@ -31,7 +31,7 @@
   },
   "packageManager": "pnpm@10.11.1",
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "wrangler": "^4.95.0"
+    "@biomejs/biome": "^2.4.16",
+    "wrangler": "^4.98.0"
   }
 }

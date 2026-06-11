@@ -12,11 +12,16 @@ pub struct CloudflareWorkers {
 impl CloudflareWorkers {
     pub fn new(client: Client) -> Self {
         let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let cloudflare_workers_dir = workspace_dir.join("crates").join("cloudflare_workers");
         let port = 8788; // Use a different port than the in-memory server
 
-        let output = std::process::Command::new("pnpx")
-            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
-            .args(["wrangler", "d1", "migrations", "apply", "BLOG_DB", "--local"])
+        let output = std::process::Command::new("pnpm")
+            .current_dir(workspace_dir)
+            .arg("exec")
+            .arg("wrangler")
+            .arg("--cwd")
+            .arg(&cloudflare_workers_dir)
+            .args(["d1", "migrations", "apply", "BLOG_DB", "--local"])
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())
@@ -25,9 +30,16 @@ impl CloudflareWorkers {
         assert!(output.status.success());
 
         // Start wrangler dev with the test feature enabled
-        let process = std::process::Command::new("pnpx")
-            .current_dir(workspace_dir.join("crates").join("cloudflare_workers"))
-            .args(["wrangler", "dev", "--port", &port.to_string(), "--local"])
+        let process = std::process::Command::new("pnpm")
+            .current_dir(workspace_dir)
+            .arg("exec")
+            .arg("wrangler")
+            .arg("--cwd")
+            .arg(&cloudflare_workers_dir)
+            .arg("dev")
+            .arg("--port")
+            .arg(port.to_string())
+            .arg("--local")
             .stderr(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stdin(std::process::Stdio::null())
