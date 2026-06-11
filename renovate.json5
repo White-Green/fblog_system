@@ -7,11 +7,18 @@
 
   packageRules: [
     {
-      description: "Group npm and Cargo package patch/minor updates into one PR.",
-      matchManagers: ["npm", "cargo"],
+      description: "Group npm package patch/minor updates into one PR.",
+      matchManagers: ["npm"],
       matchUpdateTypes: ["patch", "minor"],
-      groupName: "npm and Cargo package patch/minor updates",
-      groupSlug: "npm-cargo-package-patch-minor",
+      groupName: "npm package patch/minor updates",
+      groupSlug: "npm-package-patch-minor",
+    },
+    {
+      description: "Group Cargo package patch/minor updates into one PR.",
+      matchManagers: ["cargo"],
+      matchUpdateTypes: ["patch", "minor"],
+      groupName: "Cargo package patch/minor updates",
+      groupSlug: "cargo-package-patch-minor",
     },
     {
       description: "Group binary version pins by binary name, without grouping different binaries together.",
