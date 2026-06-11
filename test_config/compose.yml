@@ -8,7 +8,7 @@ services:
       - misskey/docker.env
 
   misskey_redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
 
   misskey:
     build:
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile_db
 
   mastodon_redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     env_file: mastodon/docker.env
 
   mastodon:
@@ -72,7 +72,7 @@ services:
       - ./sharkey/docker.env
 
   sharkey_redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
 
   sharkey:
     build:
