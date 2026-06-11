@@ -54,24 +54,28 @@ runs:
       with:
         targets: wasm32-unknown-unknown
 
-    - id: crate_version
-      name: Determine worker-build version
+    - id: worker_build
+      name: Load worker-build version
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       shell: bash
       run: |
-        VER=$(curl https://index.crates.io/wo/rk/worker-build | jq -r 'select(.yanked == false) | .vers' | sort -V | tail -n 1)
-        echo "worker_build=$VER" >> $GITHUB_OUTPUT
+        set -euo pipefail
+        version="$(cargo metadata --no-deps --format-version 1 | jq -er '.metadata["cargo-binaries"]["worker-build"]')"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
 
     - id: worker_build_binary_cache
       name: Restore worker-build cache
       uses: actions/cache@v5
       with:
-        key: fblog_system-cargo_install-${{ steps.crate_version.outputs.worker_build }}
+        key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
         path: ~/.cargo/bin/worker-build
 
     - name: Install worker-build
       shell: bash
+      working-directory: ${{ steps.normalized.outputs.working_dir }}
       if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
-      run: cargo install --locked worker-build
+      run: |
+        cargo install --locked "worker-build@${{ steps.worker_build.outputs.version }}" --force
 
     - name: Compute build-cache key
       id: build_key

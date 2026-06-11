@@ -7,6 +7,10 @@ version = "0.1.0"
 members = ["crates/cloudflare_workers", "crates/core", "crates/in_memory/server", "tests"]
 resolver = "2"
 
+[workspace.metadata.cargo-binaries]
+taplo-cli = "0.10.0"
+worker-build = "0.8.3"
+
 [workspace.dependencies]
 fblog_system_core = { path = "crates/core" }
 
