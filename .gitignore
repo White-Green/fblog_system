@@ -13,6 +13,7 @@
 !/Cargo.toml
 !/package.json
 !/pnpm-lock.yaml
+!/pnpm-workspace.yaml
 !/renovate.json5
 !/rustfmt.toml
 !/snapshot.sh
