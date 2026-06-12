@@ -38,5 +38,5 @@ if [ "$MOVE_HTML_TO_RAW" = "true" ]; then
   done
 fi
 
-pnpm install
+pnpm install --frozen-lockfile --yes
 PUBLIC_KEY_FILE="$PUBLIC_KEY_PATH" SITE_URL="https://${HOST_NAME}" pnpm run build
