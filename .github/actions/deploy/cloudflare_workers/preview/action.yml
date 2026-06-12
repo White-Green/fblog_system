@@ -4,6 +4,9 @@ inputs:
   working_dir:
     required: true
     type: string
+  preview_name:
+    required: true
+    type: string
   article_data_path:
     required: true
     type: string
@@ -29,18 +32,28 @@ inputs:
     required: true
     type: string
 
+outputs:
+  preview_url:
+    description: "Preview URL"
+    value: ${{ steps.outputs.outputs.preview_url }}
+  events_jsonl:
+    description: "events.jsonl"
+    value: ${{ steps.outputs.outputs.events_jsonl }}
+
 runs:
   using: "composite"
   steps:
     - id: normalized
       name: Normalize variables
       shell: bash
+      env:
+        WORKING_DIR_INPUT: ${{ inputs.working_dir }}
       run: |
-        WORKING_DIR="${{ inputs.working_dir }}"
-        echo "working_dir=${WORKING_DIR%/}" >> $GITHUB_OUTPUT
+        working_dir="${WORKING_DIR_INPUT%/}"
+        echo "working_dir=${working_dir}" >> "$GITHUB_OUTPUT"
 
     - name: Setup Node
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
       with:
         node-version: '24'
 
@@ -50,7 +63,7 @@ runs:
       run: corepack enable
 
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
       with:
         targets: wasm32-unknown-unknown
 
@@ -65,7 +78,7 @@ runs:
 
     - id: worker_build_binary_cache
       name: Restore worker-build cache
-      uses: actions/cache@v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
         path: ~/.cargo/bin/worker-build
@@ -74,18 +87,20 @@ runs:
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
+      env:
+        WORKER_BUILD_VERSION: ${{ steps.worker_build.outputs.version }}
       run: |
-        cargo install --locked "worker-build@${{ steps.worker_build.outputs.version }}" --force
+        cargo install --locked "worker-build@${WORKER_BUILD_VERSION}" --force
 
     - name: Compute build-cache key
       id: build_key
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       shell: bash
       run: |
-        echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+        echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
     - name: Restore build cache
-      uses: actions/cache@v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: /tmp/fblog_system_build_cache
@@ -95,21 +110,40 @@ runs:
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv /tmp/fblog_system_build_cache ./target || true
 
-    - name: Deploy Cloudflare Workers
+    - name: Deploy Cloudflare Workers (preview)
       shell: bash
       env:
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
         CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        WORKING_DIR: ${{ steps.normalized.outputs.working_dir }}
+        PREVIEW_NAME: ${{ inputs.preview_name }}
+        ARTICLE_DATA_PATH: ${{ inputs.article_data_path }}
+        USER_DATA_PATH: ${{ inputs.user_data_path }}
+        BUILD_DATA_PATH: ${{ inputs.build_data_path }}
+        PROJECT_NAME: ${{ inputs.project_name }}
+        SITE_URL: ${{ inputs.site_url }}
+        PUBLIC_KEY_PATH: ${{ inputs.public_key_path }}
       run: |
-        bash "${{ steps.normalized.outputs.working_dir }}/deploy_scripts/cloudflare/deploy_prod.sh" \
-          "${{ inputs.article_data_path }}" \
-          "${{ inputs.user_data_path }}" \
-          "${{ inputs.build_data_path }}" \
-          "${{ inputs.project_name }}" \
-          "${{ inputs.site_url }}" \
-          "${{ inputs.public_key_path }}"
+        bash "${WORKING_DIR}/deploy_scripts/cloudflare/deploy_preview.sh" \
+          "${PREVIEW_NAME}" \
+          "${ARTICLE_DATA_PATH}" \
+          "${USER_DATA_PATH}" \
+          "${BUILD_DATA_PATH}" \
+          "${PROJECT_NAME}" \
+          "${SITE_URL}" \
+          "${PUBLIC_KEY_PATH}"
 
     - name: Save build cache
       shell: bash
       working-directory: ${{ steps.normalized.outputs.working_dir }}
       run: mv ./target /tmp/fblog_system_build_cache
+
+    - id: outputs
+      name: Set outputs
+      shell: bash
+      env:
+        WORKING_DIR: ${{ steps.normalized.outputs.working_dir }}
+      run: |
+        echo "events_jsonl=${WORKING_DIR}/events.jsonl" >> "$GITHUB_OUTPUT"
+        preview_url="$(cat "${WORKING_DIR}/crates/cloudflare_workers/preview_url")"
+        echo "preview_url=${preview_url}" >> "$GITHUB_OUTPUT"
