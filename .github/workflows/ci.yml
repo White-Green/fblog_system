@@ -3,17 +3,60 @@ name: CI
 on:
   push:
 
+env:
+  GHALINT_VERSION: v1.5.6
+
 jobs:
-  test:
-    timeout-minutes: 30
+  github-actions-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: stable
+
+      - name: Install ghalint
+        run: go install "github.com/suzuki-shunsuke/ghalint/cmd/ghalint@${GHALINT_VERSION}"
+
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12 # zizmor: ignore[unpinned-images] Docker action is pinned to the requested tag.
+        with:
+          args: -color
+
+      - name: Run zizmor
+        if: ${{ !cancelled() }}
+        uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
+        with:
+          advanced-security: false
+          version: 1.25.2
+
+      - name: Run ghalint
+        if: ${{ !cancelled() }}
+        run: ghalint run
+        env:
+          GHALINT_LOG_COLOR: always
+          GITHUB_TOKEN: ${{ github.token }}
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -21,7 +64,7 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
 
       - id: worker_build
         name: Load worker-build version
@@ -32,7 +75,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -41,7 +84,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             target
@@ -50,14 +93,16 @@ jobs:
 
       - id: worker_build_binary_cache
         name: Restore worker-build cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
           path: ~/.cargo/bin/worker-build
 
       - name: Install worker-build
         if: steps.worker_build_binary_cache.outputs.cache-hit != 'true'
-        run: cargo install --locked "worker-build@${{ steps.worker_build.outputs.version }}" --force
+        run: cargo install --locked "worker-build@${WORKER_BUILD_VERSION}" --force
+        env:
+          WORKER_BUILD_VERSION: ${{ steps.worker_build.outputs.version }}
 
       - run: cargo fetch --locked
 
@@ -73,7 +118,7 @@ jobs:
       - name: Fix certificate permissions
         run: |
           sleep 10
-          sudo chown -R $(id -u):$(id -g) test_config/caddy-data
+          sudo chown -R "$(id -u):$(id -g)" test_config/caddy-data
           sudo chmod -R a+rX test_config/caddy-data
 
       - name: Build site
@@ -93,7 +138,7 @@ jobs:
 
       - name: Upload logs as artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: e2e-test-logs
           path: logs/
@@ -101,8 +146,13 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
@@ -110,7 +160,7 @@ jobs:
       - name: Start caddy
         run: docker compose -f test_config/compose.yml up -d caddy
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -118,12 +168,12 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
         with:
           components: clippy
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -132,7 +182,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             target
@@ -152,7 +202,7 @@ jobs:
 
       - name: Fix certificate permissions
         run: |
-          sudo chown -R $(id -u):$(id -g) test_config/caddy-data
+          sudo chown -R "$(id -u):$(id -g)" test_config/caddy-data
           sudo chmod -R a+rX test_config/caddy-data
 
       - name: cargo clippy
@@ -164,15 +214,20 @@ jobs:
 
   cloudflare_wasm_build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
         with:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cargo/registry
@@ -181,7 +236,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             target
@@ -198,10 +253,15 @@ jobs:
 
   rustfmt:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@nightly # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
         with:
           components: rustfmt
 
@@ -210,10 +270,15 @@ jobs:
 
   taplo:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
 
       - id: taplo_cli
         name: Load taplo-cli version
@@ -225,7 +290,7 @@ jobs:
 
       - id: taplo-cache
         name: Restore taplo-cli cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.cargo/bin/taplo
           key: ${{ runner.os }}-taplo-cli-${{ steps.taplo_cli.outputs.version }}
@@ -233,7 +298,9 @@ jobs:
       - name: install taplo-cli
         if: steps.taplo-cache.outputs.cache-hit != 'true'
         run: |
-          cargo install --locked "taplo-cli@${{ steps.taplo_cli.outputs.version }}" --force
+          cargo install --locked "taplo-cli@${TAPLO_CLI_VERSION}" --force
+        env:
+          TAPLO_CLI_VERSION: ${{ steps.taplo_cli.outputs.version }}
 
       - name: taplo fmt
         run: ~/.cargo/bin/taplo fmt --check

@@ -46,8 +46,10 @@ runs:
   steps:
     - run: |
         mkdir -p ./.github/__tmp/fblog_system
-        cp -R "${{ github.action_path }}/.github/workflows/deploy" ./.github/__tmp/fblog_system
+        cp -R "${ACTION_PATH}/.github/actions/deploy" ./.github/__tmp/fblog_system
       shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
 
     - uses: ./.github/__tmp/fblog_system/deploy/cloudflare_workers/main
       if: ${{ inputs.target == 'cloudflare_workers' && inputs.preview_name == '' }}

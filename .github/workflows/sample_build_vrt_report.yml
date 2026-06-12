@@ -1,6 +1,6 @@
 name: Sample build VRT Report
 
-on:
+on: # zizmor: ignore[dangerous-triggers] This workflow consumes artifacts from the paired capture workflow.
   workflow_run:
     workflows: ["Sample build VRT Capture"]
     types: [completed]
@@ -13,11 +13,13 @@ jobs:
   publish_baseline:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == github.event.repository.default_branch
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
+      contents: read
       statuses: write
     steps:
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
@@ -32,7 +34,7 @@ jobs:
               target_url: process.env.RUN_URL,
             });
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: sample-build-vrt-data
           path: ./actual
@@ -42,16 +44,18 @@ jobs:
       - name: Archive baseline
         run: tar -I 'zstd -19' -cf saved.tar.zst -C ./actual .
 
-      - uses: cloudflare/wrangler-action@v4
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        env:
+          VRT_CF_R2_BUCKET: ${{ secrets.VRT_CF_R2_BUCKET }}
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
-            r2 object put ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file ./saved.tar.zst --remote
+            r2 object put "$VRT_CF_R2_BUCKET/visual-regression/sample-build-vrt/saved_tar_zst" --file ./saved.tar.zst --remote
 
       - if: always()
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           JOB_STATUS: ${{ job.status }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -75,13 +79,15 @@ jobs:
   pr_checks:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
+      contents: read
       issues: write
       pull-requests: write
       statuses: write
     steps:
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
@@ -96,7 +102,7 @@ jobs:
               target_url: process.env.RUN_URL,
             });
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: sample-build-vrt-data
           path: ./actual
@@ -104,13 +110,15 @@ jobs:
           github-token: ${{ github.token }}
 
       - continue-on-error: true
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        env:
+          VRT_CF_R2_BUCKET: ${{ secrets.VRT_CF_R2_BUCKET }}
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
-            r2 object get ${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst --file main-saved.tar.zst --remote
+            r2 object get "$VRT_CF_R2_BUCKET/visual-regression/sample-build-vrt/saved_tar_zst" --file main-saved.tar.zst --remote
 
       - name: Unpack baseline
         run: |
@@ -145,15 +153,20 @@ jobs:
             --output-html ./regression/index.html \
             --output-json ./data/sample-build-vrt/report/report.json
 
-      - uses: cloudflare/wrangler-action@v4
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        env:
+          VRT_CF_PAGES_PROJECT_NAME: ${{ vars.VRT_CF_PAGES_PROJECT_NAME }}
+          VRT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: ${{ env.VRT_WRANGLER_VERSION }}
           command: |
-            pages deploy --project-name ${{ vars.VRT_CF_PAGES_PROJECT_NAME }} --branch pr-${{ github.event.workflow_run.pull_requests[0].number }} ./regression
+            pages deploy --project-name "$VRT_CF_PAGES_PROJECT_NAME" --branch "pr-$VRT_PR_NUMBER" ./regression
 
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          VRT_CF_PAGES_PROJECT_NAME: ${{ vars.VRT_CF_PAGES_PROJECT_NAME }}
         with:
           script: |
             const fs = require("fs");
@@ -171,7 +184,7 @@ jobs:
             | Added     | ${report.added}     |
             | Deleted   | ${report.deleted}   |
 
-            [Diff Report](https://pr-${issue_number}.${{ vars.VRT_CF_PAGES_PROJECT_NAME }}.pages.dev/)
+            [Diff Report](https://pr-${issue_number}.${process.env.VRT_CF_PAGES_PROJECT_NAME}.pages.dev/)
             `;
 
             const { owner, repo } = context.repo;
@@ -209,7 +222,7 @@ jobs:
             });
 
       - if: always()
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           JOB_STATUS: ${{ job.status }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
