@@ -62,7 +62,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install Node dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
 
@@ -166,7 +166,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install Node dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
         with:
