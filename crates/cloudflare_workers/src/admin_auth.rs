@@ -142,10 +142,10 @@ pub async fn authenticate_admin_request(request: AdminAuthRequest) -> Result<(),
         return Err(AdminAuthError::UnauthorizedEmail);
     }
 
-    if let Some(header_email) = request.header_email {
-        if !emails_match(&header_email, email) {
-            return Err(AdminAuthError::InvalidEmailHeader);
-        }
+    if let Some(header_email) = request.header_email
+        && !emails_match(&header_email, email)
+    {
+        return Err(AdminAuthError::InvalidEmailHeader);
     }
 
     Ok(())
