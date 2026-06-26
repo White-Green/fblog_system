@@ -75,7 +75,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             ~/.cargo/registry
@@ -84,7 +84,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             target
@@ -93,7 +93,7 @@ jobs:
 
       - id: worker_build_binary_cache
         name: Restore worker-build cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
           path: ~/.cargo/bin/worker-build
@@ -173,7 +173,7 @@ jobs:
           components: clippy
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             ~/.cargo/registry
@@ -182,7 +182,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             target
@@ -227,7 +227,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             ~/.cargo/registry
@@ -236,7 +236,7 @@ jobs:
           restore-keys: ${{ github.ref_name != github.event.repository.default_branch && format('{0}-cargo-', runner.os) }}
 
       - name: Cache cargo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: |
             target
@@ -290,7 +290,7 @@ jobs:
 
       - id: taplo-cache
         name: Restore taplo-cli cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cargo/bin/taplo
           key: ${{ runner.os }}-taplo-cli-${{ steps.taplo_cli.outputs.version }}
