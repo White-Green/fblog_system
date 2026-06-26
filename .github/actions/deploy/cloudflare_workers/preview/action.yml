@@ -78,7 +78,7 @@ runs:
 
     - id: worker_build_binary_cache
       name: Restore worker-build cache
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
       with:
         key: fblog_system-cargo_install-worker-build-${{ steps.worker_build.outputs.version }}
         path: ~/.cargo/bin/worker-build
@@ -100,7 +100,7 @@ runs:
         echo "cargo_lock_hash=$(sha256sum "Cargo.lock" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
     - name: Restore build cache
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
       with:
         key: fblog_system-build_cache-${{ steps.build_key.outputs.cargo_lock_hash }}
         path: /tmp/fblog_system_build_cache
