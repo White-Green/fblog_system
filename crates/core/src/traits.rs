@@ -59,6 +59,13 @@ pub trait UserProvider {
     fn get_followers_inbox_batch(&self, username: &str, last_inbox: &str) -> impl Future<Output = (ArrayVec<String, 10>, String)> + Send;
 }
 
+#[derive(Debug, Default, Serialize)]
+pub struct AdminDashboard {}
+
+pub trait AdminProvider {
+    fn admin_dashboard(&self) -> impl Future<Output = AdminDashboard> + Send;
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "event_type")]
 pub enum QueueData {
