@@ -6,7 +6,7 @@ on: # zizmor: ignore[dangerous-triggers] This workflow consumes artifacts from t
     types: [completed]
 
 env:
-  VRT_WRANGLER_VERSION: "4.99.0"
+  VRT_WRANGLER_VERSION: "4.110.0"
   SEMDIFF_VERSION: "v0.4.2"
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       contents: read
       statuses: write
     steps:
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
@@ -34,7 +34,7 @@ jobs:
               target_url: process.env.RUN_URL,
             });
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sample-build-vrt-data
           path: ./actual
@@ -44,7 +44,7 @@ jobs:
       - name: Archive baseline
         run: tar -I 'zstd -19' -cf saved.tar.zst -C ./actual .
 
-      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
@@ -53,7 +53,7 @@ jobs:
             r2 object put "${{ secrets.VRT_CF_R2_BUCKET }}/visual-regression/sample-build-vrt/saved_tar_zst" --file ./saved.tar.zst --remote
 
       - if: always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           JOB_STATUS: ${{ job.status }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -85,7 +85,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
@@ -100,7 +100,7 @@ jobs:
               target_url: process.env.RUN_URL,
             });
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sample-build-vrt-data
           path: ./actual
@@ -108,7 +108,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - continue-on-error: true
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
@@ -149,7 +149,7 @@ jobs:
             --output-html ./regression/index.html \
             --output-json ./data/sample-build-vrt/report/report.json
 
-      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
@@ -157,7 +157,7 @@ jobs:
           command: |
             pages deploy --project-name "${{ vars.VRT_CF_PAGES_PROJECT_NAME }}" --branch "pr-${{ github.event.workflow_run.pull_requests[0].number }}" ./regression
 
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VRT_CF_PAGES_PROJECT_NAME: ${{ vars.VRT_CF_PAGES_PROJECT_NAME }}
         with:
@@ -215,7 +215,7 @@ jobs:
             });
 
       - if: always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           JOB_STATUS: ${{ job.status }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
