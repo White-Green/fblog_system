@@ -30,7 +30,7 @@ HOST_NAME=$(node -e 'const i=process.argv[1]; console.log(new URL(/^https?:\/\//
 
 cd "$WORKING_DIR"
 
-./crates/cloudflare_workers/update_snapshot.sh "$PROJECT_NAME"
+CLOUDFLARE_ACCOUNT_ID="$CF_ACCOUNT_ID_VALUE" CLOUDFLARE_API_TOKEN="$CF_API_TOKEN_VALUE" ./crates/cloudflare_workers/update_snapshot.sh "$PROJECT_NAME"
 
 mv dist crates/cloudflare_workers/public
 echo "=== events ==="
