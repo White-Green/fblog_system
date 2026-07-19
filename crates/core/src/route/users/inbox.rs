@@ -37,8 +37,8 @@ where
         Ok(r) => r,
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
     };
-    let (verified, bytes) = match verify_request(&state, request).await {
-        VerifiedRequest::VerifiedDigest(req) => {
+    let (verified_actor, bytes) = match verify_request(&state, request).await {
+        VerifiedRequest::VerifiedDigest { request: req, actor } => {
             let (bytes, digest_ok) = match req.into_body().collect_to_bytes().await {
                 Ok(res) => res,
                 Err(_) => return StatusCode::BAD_REQUEST.into_response(),
@@ -47,20 +47,20 @@ where
                 tracing::warn!("digest mismatch");
                 return StatusCode::BAD_REQUEST.into_response();
             }
-            (true, bytes)
+            (Some(actor), bytes)
         }
-        VerifiedRequest::Verified(req) => {
+        VerifiedRequest::Verified { request: req, actor } => {
             let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
             let bytes = collected.to_bytes();
-            (true, bytes)
+            (Some(actor), bytes)
         }
         VerifiedRequest::CannotVerify(req) => {
             let Ok(collected) = http_body_util::BodyExt::collect(req.into_body()).await else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
-            (false, collected.to_bytes())
+            (None, collected.to_bytes())
         }
         VerifiedRequest::VerifyFailed => return StatusCode::BAD_REQUEST.into_response(),
     };
@@ -74,7 +74,8 @@ where
             username,
             ty: inbox.ty,
             id: inbox.id.clone(),
-            verified_body: verified.then(|| data.clone()),
+            verified_body: verified_actor.is_some().then(|| data.clone()),
+            verified_actor,
         }
     } else {
         tracing::error!("failed to parse inbox data: {data}");
