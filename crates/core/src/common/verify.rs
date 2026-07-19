@@ -12,13 +12,20 @@ use serde::Deserialize;
 
 #[derive(Debug)]
 pub enum VerifiedRequest<B> {
-    Verified(Request<Limited<B>>),
-    VerifiedDigest(Request<VerifyBody<Limited<B>>>),
+    Verified {
+        request: Request<Limited<B>>,
+        actor: String,
+    },
+    VerifiedDigest {
+        request: Request<VerifyBody<Limited<B>>>,
+        actor: String,
+    },
     CannotVerify(Request<Limited<B>>),
     VerifyFailed,
 }
 
 const BODY_LIMIT: usize = 1024 * 64;
+const ACTOR_DOCUMENT_LIMIT: usize = 1024 * 64;
 
 #[derive(Debug)]
 pub struct VerifyBody<B> {
@@ -218,7 +225,7 @@ where
         tracing::warn!(status = %response.status(), "actor fetch failed");
         return VerifiedRequest::CannotVerify(Request::from_parts(parts, Limited::new(body, BODY_LIMIT)));
     }
-    let actor_body = match BodyExt::collect(response.into_body()).await {
+    let actor_body = match BodyExt::collect(Limited::new(response.into_body(), ACTOR_DOCUMENT_LIMIT)).await {
         Ok(b) => b,
         Err(_) => {
             tracing::warn!("failed to read actor response");
@@ -266,9 +273,15 @@ where
         let limited = Limited::new(body, BODY_LIMIT);
         if let Some(digest) = digest_header {
             let body = VerifyBody::new(limited, digest);
-            VerifiedRequest::VerifiedDigest(Request::from_parts(parts, body))
+            VerifiedRequest::VerifiedDigest {
+                request: Request::from_parts(parts, body),
+                actor: actor_url.to_owned(),
+            }
         } else {
-            VerifiedRequest::Verified(Request::from_parts(parts, limited))
+            VerifiedRequest::Verified {
+                request: Request::from_parts(parts, limited),
+                actor: actor_url.to_owned(),
+            }
         }
     } else {
         tracing::info!("signature verification failed");

@@ -15,6 +15,10 @@ PUBLIC_KEY_PATH="$7"
 : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required}"
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
 
+CF_ACCOUNT_ID_VALUE="$CLOUDFLARE_ACCOUNT_ID"
+CF_API_TOKEN_VALUE="$CLOUDFLARE_API_TOKEN"
+unset CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CF_ACCOUNT_ID CF_API_TOKEN
+
 HOST_NAME=$(node -e 'const i=process.argv[1]; console.log(new URL(/^https?:\/\//.test(i) ? i : `https://${i}`).hostname);' "$SITE_URL")
 
 "${SCRIPT_DIR}/../build.sh" \
@@ -27,7 +31,7 @@ HOST_NAME=$(node -e 'const i=process.argv[1]; console.log(new URL(/^https?:\/\//
 
 cd "$WORKING_DIR"
 
-./crates/cloudflare_workers/snapshot_diff_for_preview.sh "$PROJECT_NAME"
+CLOUDFLARE_ACCOUNT_ID="$CF_ACCOUNT_ID_VALUE" CLOUDFLARE_API_TOKEN="$CF_API_TOKEN_VALUE" ./crates/cloudflare_workers/snapshot_diff_for_preview.sh "$PROJECT_NAME"
 
 mv dist crates/cloudflare_workers/public
 echo "=== events ==="
@@ -36,4 +40,4 @@ echo "=== events ==="
 
 cd crates/cloudflare_workers
 ./setup_resources_for_preview.sh "$PROJECT_NAME" "$HOST_NAME"
-./upload_preview.sh "$PREVIEW_NAME"
+CLOUDFLARE_ACCOUNT_ID="$CF_ACCOUNT_ID_VALUE" CLOUDFLARE_API_TOKEN="$CF_API_TOKEN_VALUE" ./upload_preview.sh "$PREVIEW_NAME"
