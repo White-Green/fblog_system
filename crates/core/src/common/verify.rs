@@ -12,8 +12,14 @@ use serde::Deserialize;
 
 #[derive(Debug)]
 pub enum VerifiedRequest<B> {
-    Verified(Request<Limited<B>>),
-    VerifiedDigest(Request<VerifyBody<Limited<B>>>),
+    Verified {
+        request: Request<Limited<B>>,
+        actor: String,
+    },
+    VerifiedDigest {
+        request: Request<VerifyBody<Limited<B>>>,
+        actor: String,
+    },
     CannotVerify(Request<Limited<B>>),
     VerifyFailed,
 }
@@ -266,9 +272,15 @@ where
         let limited = Limited::new(body, BODY_LIMIT);
         if let Some(digest) = digest_header {
             let body = VerifyBody::new(limited, digest);
-            VerifiedRequest::VerifiedDigest(Request::from_parts(parts, body))
+            VerifiedRequest::VerifiedDigest {
+                request: Request::from_parts(parts, body),
+                actor: actor_url.to_owned(),
+            }
         } else {
-            VerifiedRequest::Verified(Request::from_parts(parts, limited))
+            VerifiedRequest::Verified {
+                request: Request::from_parts(parts, limited),
+                actor: actor_url.to_owned(),
+            }
         }
     } else {
         tracing::info!("signature verification failed");

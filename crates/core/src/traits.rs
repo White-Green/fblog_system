@@ -67,6 +67,8 @@ pub enum QueueData {
         ty: String,
         id: String,
         verified_body: Option<String>,
+        #[serde(default)]
+        verified_actor: Option<String>,
     },
     DeliveryNewArticleToAll {
         slug: String,
@@ -117,4 +119,25 @@ pub trait Queue {
 pub trait HTTPClient {
     type Error: Error + Send;
     fn request(&self, request: Request<Bytes>) -> impl Future<Output = Result<axum::http::Response<Body>, Self::Error>> + Send;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::QueueData;
+
+    #[test]
+    fn old_inbox_queue_data_defaults_to_an_unverified_actor() {
+        let data = serde_json::from_str::<QueueData>(
+            r#"{
+                "event_type": "Inbox",
+                "username": "default",
+                "ty": "Undo",
+                "id": "https://social.example/activities/undo-1",
+                "verified_body": null
+            }"#,
+        )
+        .unwrap();
+
+        assert!(matches!(data, QueueData::Inbox { verified_actor: None, .. }));
+    }
 }

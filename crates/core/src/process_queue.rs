@@ -39,6 +39,7 @@ where
             ty: _,
             id,
             verified_body,
+            verified_actor,
         } => {
             let body_raw = if let Some(body) = verified_body {
                 body
@@ -205,8 +206,11 @@ where
                         object,
                         content: _,
                     } => {
-                        if undo_actor != actor {
-                            tracing::info!(undo_actor, actor, "actor mismatch");
+                        if verified_actor
+                            .as_ref()
+                            .is_none_or(|verified_actor| verified_actor != &undo_actor || undo_actor != actor)
+                        {
+                            tracing::info!(?verified_actor, undo_actor, actor, "undo actor is not authorized");
                             return ProcessQueueResult::Finished;
                         }
                         let Some(slug) = object.strip_prefix(&format!("{}/articles/", state.url())).map(|s| s.trim_matches('/')) else {
@@ -221,8 +225,11 @@ where
                         return ProcessQueueResult::Finished;
                     }
                     ResponseBody::Follow { id: _, actor, object } => {
-                        if undo_actor != actor {
-                            tracing::info!(undo_actor, actor, "actor mismatch");
+                        if verified_actor
+                            .as_ref()
+                            .is_none_or(|verified_actor| verified_actor != &undo_actor || undo_actor != actor)
+                        {
+                            tracing::info!(?verified_actor, undo_actor, actor, "undo actor is not authorized");
                             return ProcessQueueResult::Finished;
                         }
                         if object != format!("{}/users/{username}", state.url()) {
