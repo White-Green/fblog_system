@@ -25,6 +25,7 @@ pub enum VerifiedRequest<B> {
 }
 
 const BODY_LIMIT: usize = 1024 * 64;
+const ACTOR_DOCUMENT_LIMIT: usize = 1024 * 64;
 
 #[derive(Debug)]
 pub struct VerifyBody<B> {
@@ -224,7 +225,7 @@ where
         tracing::warn!(status = %response.status(), "actor fetch failed");
         return VerifiedRequest::CannotVerify(Request::from_parts(parts, Limited::new(body, BODY_LIMIT)));
     }
-    let actor_body = match BodyExt::collect(response.into_body()).await {
+    let actor_body = match BodyExt::collect(Limited::new(response.into_body(), ACTOR_DOCUMENT_LIMIT)).await {
         Ok(b) => b,
         Err(_) => {
             tracing::warn!("failed to read actor response");
