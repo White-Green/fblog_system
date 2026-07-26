@@ -16,7 +16,7 @@ fblog_system_core = { path = "crates/core" }
 
 arrayvec = { features = ["serde"], version = "0.7.8" }
 axum = { default-features = false, features = ["json", "macros", "query"], version = "0.8.9" }
-base64 = "0.22.1"
+base64 = "0.23.0"
 bitflags = "2.13.1"
 bytes = "1.12.1"
 chrono = { features = ["serde"], version = "0.4.45" }
