@@ -7,15 +7,10 @@ use chrono::Utc;
 use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
 use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
-use futures::Stream;
-use futures::stream::TryStreamExt;
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
 use rsa::pkcs8::DecodePrivateKey;
 use std::fmt::Display;
-use std::mem;
-use std::pin::Pin;
-use std::task::{Context as TaskContext, Poll};
 use tower_service::Service;
 use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
@@ -25,20 +20,6 @@ use worker::{Context, Env, HttpRequest, MessageExt, event};
 
 #[cfg(feature = "test")]
 mod tests;
-
-struct SendStream<S> {
-    inner: S,
-}
-
-unsafe impl<S> Send for SendStream<S> {}
-
-impl<S: Stream + Unpin> Stream for SendStream<S> {
-    type Item = S::Item;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.inner).poll_next(cx)
-    }
-}
 
 #[derive(Clone)]
 struct WorkerState {
@@ -420,20 +401,12 @@ impl Queue for WorkerState {
 }
 
 impl HTTPClient for WorkerState {
-    type Error = reqwest::Error;
+    type Error = worker::Error;
     async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
-        let req = reqwest::Request::try_from(request)?;
+        let request = worker::Request::try_from(request.map(Body::from))?;
         worker::send::SendFuture::new(async move {
-            let mut resp = reqwest::Client::new().execute(req).await?;
-
-            let status = resp.status();
-            let mut builder = axum::http::Response::builder().status(status);
-            *builder.headers_mut().unwrap() = mem::take(resp.headers_mut());
-
-            let stream = SendStream { inner: resp.bytes_stream() };
-            let body = Body::from_stream(stream.map_err(axum::Error::new));
-
-            Ok(builder.body(body).expect("failed to build response"))
+            let response = worker::Fetch::Request(request).send().await?;
+            Ok(response.into())
         })
         .await
     }

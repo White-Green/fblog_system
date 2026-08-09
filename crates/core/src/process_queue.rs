@@ -186,16 +186,14 @@ where
                     };
                     if !response.status().is_success() {
                         tracing::warn!("failed to post: {:?}", response);
-                        let response = response
-                            .into_body()
+                        let response_body = Limited::new(response.into_body(), 1024 * 64)
                             .into_data_stream()
                             .try_fold(Vec::new(), |mut acc, bytes| {
                                 acc.extend_from_slice(&bytes);
                                 future::ready(Ok(acc))
                             })
-                            .await
-                            .unwrap();
-                        tracing::warn!("response: {:?}", String::from_utf8_lossy(&response));
+                            .await;
+                        tracing::warn!("response: {:?}", response_body.map(|body| String::from_utf8_lossy(&body).into_owned()));
                     }
                     return ProcessQueueResult::Finished;
                 }
