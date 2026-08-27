@@ -629,7 +629,6 @@ dependencies = [
  "futures",
  "http",
  "http-body-util",
- "reqwest",
  "ring",
  "rsa",
  "serde",

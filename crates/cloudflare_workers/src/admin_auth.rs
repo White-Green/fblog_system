@@ -23,8 +23,8 @@ pub enum AdminAuthError {
     InvalidJwt(&'static str),
     InvalidEmailHeader,
     UnauthorizedEmail,
-    FetchCerts(reqwest::Error),
-    CertsStatus(reqwest::StatusCode),
+    FetchCerts(worker::Error),
+    CertsStatus(u16),
     Decode(base64::DecodeError),
     Json(serde_json::Error),
     Signature,
@@ -39,7 +39,7 @@ impl AdminAuthError {
             Self::InvalidEmailHeader => "invalid Cloudflare Access email header".to_string(),
             Self::UnauthorizedEmail => "unauthorized admin email".to_string(),
             Self::FetchCerts(error) => format!("failed to fetch Cloudflare Access certs: {error}"),
-            Self::CertsStatus(status) => format!("Cloudflare Access certs returned {status}"),
+            Self::CertsStatus(status) => format!("Cloudflare Access certs returned HTTP {status}"),
             Self::Decode(error) => format!("failed to decode Cloudflare Access JWT: {error}"),
             Self::Json(error) => format!("failed to parse Cloudflare Access JWT JSON: {error}"),
             Self::Signature => "invalid Cloudflare Access JWT signature".to_string(),
@@ -219,10 +219,11 @@ fn decode_json<T: for<'de> Deserialize<'de>>(encoded: &str) -> Result<T, AdminAu
 
 async fn fetch_access_certs(team_domain: &str) -> Result<AccessCerts, AdminAuthError> {
     let url = format!("{team_domain}/cdn-cgi/access/certs");
+    let url = url.parse().map_err(|error| AdminAuthError::FetchCerts(worker::Error::from(error)))?;
     SendFuture::new(async move {
-        let response = reqwest::get(url).await.map_err(AdminAuthError::FetchCerts)?;
-        if !response.status().is_success() {
-            return Err(AdminAuthError::CertsStatus(response.status()));
+        let mut response = worker::Fetch::Url(url).send().await.map_err(AdminAuthError::FetchCerts)?;
+        if !(200..300).contains(&response.status_code()) {
+            return Err(AdminAuthError::CertsStatus(response.status_code()));
         }
         response.json::<AccessCerts>().await.map_err(AdminAuthError::FetchCerts)
     })
@@ -281,4 +282,50 @@ fn normalize_team_domain(value: String) -> String {
 
 fn emails_match(left: &str, right: &str) -> bool {
     left.trim().eq_ignore_ascii_case(right.trim())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_access_jwt_parts() {
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"RS256","kid":"key-1"}"#);
+        let claims =
+            URL_SAFE_NO_PAD.encode(r#"{"aud":["aud-1"],"email":"admin@example.com","exp":4102444800,"iss":"https://team.example.com","nbf":0}"#);
+        let signature = URL_SAFE_NO_PAD.encode([1, 2, 3]);
+
+        let parsed = parse_jwt(&format!("{header}.{claims}.{signature}")).unwrap();
+
+        assert_eq!(parsed.header.alg, "RS256");
+        assert_eq!(parsed.header.kid, "key-1");
+        assert!(parsed.claims.aud.contains("aud-1"));
+        assert_eq!(parsed.claims.email.as_deref(), Some("admin@example.com"));
+        assert_eq!(parsed.signature, [1, 2, 3]);
+    }
+
+    #[test]
+    fn verifies_claims_and_email_matching() {
+        let config = AdminAuthConfig {
+            admin_email: " Admin@Example.com ".to_string(),
+            team_domain: "https://team.example.com".to_string(),
+            policy_aud: "aud-1".to_string(),
+        };
+        let claims = AccessClaims {
+            aud: Audience::Many(vec!["other-aud".to_string(), "aud-1".to_string()]),
+            email: Some("admin@example.com".to_string()),
+            exp: 4_102_444_800,
+            iss: "https://team.example.com/".to_string(),
+            nbf: Some(0),
+        };
+
+        assert!(verify_claims(&claims, &config).is_ok());
+        assert!(emails_match(" admin@example.com ", &config.admin_email));
+    }
+
+    #[test]
+    fn rejects_invalid_access_jwt_shape() {
+        assert!(matches!(parse_jwt("not-a-jwt"), Err(AdminAuthError::InvalidJwt("missing claims"))));
+        assert!(matches!(parse_jwt("a.b.c.d"), Err(AdminAuthError::InvalidJwt("too many jwt parts"))));
+    }
 }
