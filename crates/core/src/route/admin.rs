@@ -1,7 +1,5 @@
-use crate::traits::AdminProvider;
 use askama::Template;
 use axum::body::Body;
-use axum::extract::State;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
 use axum::response::{IntoResponse, Response};
@@ -25,12 +23,8 @@ use axum::response::{IntoResponse, Response};
 )]
 struct AdminTemplate;
 
-#[tracing::instrument(skip(state))]
-pub async fn admin_get<E>(State(state): State<E>) -> Response<Body>
-where
-    E: AdminProvider,
-{
-    let _dashboard = state.admin_dashboard().await;
+#[tracing::instrument]
+pub async fn admin_get() -> Response<Body> {
     match AdminTemplate.render() {
         Ok(html) => Response::builder()
             .header(CONTENT_TYPE, mime::TEXT_HTML.as_ref())

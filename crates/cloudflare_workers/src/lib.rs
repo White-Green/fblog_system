@@ -70,12 +70,6 @@ impl fblog_system_core::traits::Env for WorkerState {
     }
 }
 
-impl AdminProvider for WorkerState {
-    async fn admin_dashboard(&self) -> AdminDashboard {
-        AdminDashboard::default()
-    }
-}
-
 impl ArticleProvider for WorkerState {
     #[worker::send]
     async fn exists_article(&self, slug: &str) -> bool {
@@ -466,7 +460,7 @@ compile_error!("activitypub, preview, and test features are mutually exclusive")
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
     let state = setup_worker_state(&env)?;
     let auth_state = state.clone();
-    let admin = admin_router(state.clone()).layer(middleware::from_fn(move |req, next| {
+    let admin = admin_router().layer(middleware::from_fn(move |req, next| {
         let auth_state = auth_state.clone();
         async move { admin_access::require_admin_access(auth_state, req, next).await }
     }));

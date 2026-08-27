@@ -1,4 +1,4 @@
-use crate::traits::{AdminProvider, ArticleProvider, Env, HTTPClient, Queue, UserProvider};
+use crate::traits::{ArticleProvider, Env, HTTPClient, Queue, UserProvider};
 use axum::Router;
 use axum::routing::{get, post};
 
@@ -24,9 +24,9 @@ where
         .with_state(state)
 }
 
-pub fn admin_router<E, S>(state: E) -> Router<S>
+pub fn admin_router<S>() -> Router<S>
 where
-    E: AdminProvider + Send + Sync + Clone + 'static,
+    S: Send + Sync + Clone + 'static,
 {
-    Router::<E>::new().route("/", get(admin::admin_get::<E>)).with_state(state)
+    Router::new().route("/", get(admin::admin_get))
 }
