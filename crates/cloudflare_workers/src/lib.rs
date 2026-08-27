@@ -1,19 +1,9 @@
 use arrayvec::ArrayVec;
 use axum::body::Body;
-#[cfg(feature = "activitypub")]
-use axum::extract::Request as AxumRequest;
 use axum::http::Request as HttpBodyRequest;
-#[cfg(feature = "activitypub")]
-use axum::middleware::{self, Next};
 use axum::response::IntoResponse;
-#[cfg(feature = "activitypub")]
-use axum::response::Response as AxumResponse;
 use bytes::Bytes;
 use chrono::Utc;
-#[cfg(feature = "activitypub")]
-use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
-#[cfg(feature = "activitypub")]
-use fblog_system_core::route::{admin_router, router};
 use fblog_system_core::traits::*;
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
@@ -24,12 +14,20 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
-#[cfg(feature = "activitypub")]
-use worker::MessageExt;
 use worker::{Context, Env, HttpRequest, event};
+#[cfg(feature = "activitypub")]
+use {
+    axum::middleware,
+    fblog_system_core::process_queue::{ProcessQueueResult, process_queue},
+    fblog_system_core::route::{admin_router, router},
+    worker::MessageExt,
+};
 
 #[cfg(feature = "activitypub")]
 mod admin_auth;
+
+#[cfg(feature = "activitypub")]
+mod admin_access;
 
 #[cfg(feature = "test")]
 mod tests;
@@ -456,14 +454,12 @@ fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
     })
 }
 
-#[cfg(all(feature = "activitypub", feature = "test"))]
-compile_error!("Cannot enable both activitypub and test features at the same time");
-
-#[cfg(all(feature = "test", feature = "preview"))]
-compile_error!("Cannot enable both test and preview features at the same time");
-
-#[cfg(all(feature = "preview", feature = "activitypub"))]
-compile_error!("Cannot enable both preview and activitypub features at the same time");
+#[cfg(any(
+    all(feature = "activitypub", feature = "test"),
+    all(feature = "test", feature = "preview"),
+    all(feature = "preview", feature = "activitypub"),
+))]
+compile_error!("activitypub, preview, and test features are mutually exclusive");
 
 #[cfg(feature = "activitypub")]
 #[event(fetch)]
@@ -472,25 +468,9 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http
     let auth_state = state.clone();
     let admin = admin_router(state.clone()).layer(middleware::from_fn(move |req, next| {
         let auth_state = auth_state.clone();
-        async move { require_admin_access(auth_state, req, next).await }
+        async move { admin_access::require_admin_access(auth_state, req, next).await }
     }));
     Ok(router(state.clone()).nest("/admin", admin).with_state::<()>(state).call(req).await?)
-}
-
-#[cfg(feature = "activitypub")]
-async fn require_admin_access(state: WorkerState, req: AxumRequest, next: Next) -> AxumResponse {
-    let auth_request = match admin_auth::read_admin_auth_request(&req, &state.env) {
-        Ok(auth_request) => auth_request,
-        Err(error) => {
-            tracing::warn!(error = %error.log_message(), "admin request rejected");
-            return admin_auth::forbidden_response();
-        }
-    };
-    if let Err(error) = admin_auth::authenticate_admin_request(auth_request).await {
-        tracing::warn!(error = %error.log_message(), "admin request rejected");
-        return admin_auth::forbidden_response();
-    }
-    next.run(req).await
 }
 
 #[cfg(feature = "test")]
