@@ -64,7 +64,9 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
 
       - id: worker_build
         name: Load worker-build version
@@ -168,8 +170,9 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
+          toolchain: stable
           components: clippy
 
       - name: Cache cargo
@@ -222,8 +225,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
@@ -261,8 +265,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@nightly # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
+          toolchain: nightly
           components: rustfmt
 
       - name: cargo fmt
@@ -278,7 +283,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
 
       - id: taplo_cli
         name: Load taplo-cli version
