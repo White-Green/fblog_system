@@ -52,8 +52,9 @@ runs:
       run: corepack enable
 
     - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable # zizmor: ignore[unpinned-uses] Channel refs select the requested Rust toolchain.
+      uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
       with:
+        toolchain: stable
         targets: wasm32-unknown-unknown
 
     - id: worker_build

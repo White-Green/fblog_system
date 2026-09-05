@@ -1,11 +1,9 @@
 use arrayvec::ArrayVec;
 use axum::body::Body;
-use axum::http::Request;
+use axum::http::Request as HttpBodyRequest;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use chrono::Utc;
-use fblog_system_core::process_queue::{ProcessQueueResult, process_queue};
-use fblog_system_core::route::router;
 use fblog_system_core::traits::*;
 use http::StatusCode;
 use http_body_util::{BodyDataStream, BodyExt};
@@ -16,7 +14,20 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_web::MakeConsoleWriter;
-use worker::{Context, Env, HttpRequest, MessageExt, event};
+use worker::{Context, Env, HttpRequest, event};
+#[cfg(feature = "activitypub")]
+use {
+    axum::middleware,
+    fblog_system_core::process_queue::{ProcessQueueResult, process_queue},
+    fblog_system_core::route::{admin_router, router},
+    worker::MessageExt,
+};
+
+#[cfg(feature = "activitypub")]
+mod admin_auth;
+
+#[cfg(feature = "activitypub")]
+mod admin_access;
 
 #[cfg(feature = "test")]
 mod tests;
@@ -402,7 +413,7 @@ impl Queue for WorkerState {
 
 impl HTTPClient for WorkerState {
     type Error = worker::Error;
-    async fn request(&self, request: Request<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
+    async fn request(&self, request: HttpBodyRequest<Bytes>) -> Result<axum::http::Response<Body>, Self::Error> {
         let request = worker::Request::try_from(request.map(Body::from))?;
         worker::send::SendFuture::new(async move {
             let response = worker::Fetch::Request(request).send().await?;
@@ -437,20 +448,23 @@ fn setup_worker_state(env: &Env) -> worker::Result<WorkerState> {
     })
 }
 
-#[cfg(all(feature = "activitypub", feature = "test"))]
-compile_error!("Cannot enable both activitypub and test features at the same time");
-
-#[cfg(all(feature = "test", feature = "preview"))]
-compile_error!("Cannot enable both test and preview features at the same time");
-
-#[cfg(all(feature = "preview", feature = "activitypub"))]
-compile_error!("Cannot enable both preview and activitypub features at the same time");
+#[cfg(any(
+    all(feature = "activitypub", feature = "test"),
+    all(feature = "test", feature = "preview"),
+    all(feature = "preview", feature = "activitypub"),
+))]
+compile_error!("activitypub, preview, and test features are mutually exclusive");
 
 #[cfg(feature = "activitypub")]
 #[event(fetch)]
 async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> worker::Result<http::Response<Body>> {
     let state = setup_worker_state(&env)?;
-    Ok(router(state.clone()).with_state::<()>(state).call(req).await?)
+    let auth_state = state.clone();
+    let admin = admin_router().layer(middleware::from_fn(move |req, next| {
+        let auth_state = auth_state.clone();
+        async move { admin_access::require_admin_access(auth_state, req, next).await }
+    }));
+    Ok(router(state.clone()).nest("/admin", admin).with_state::<()>(state).call(req).await?)
 }
 
 #[cfg(feature = "test")]
