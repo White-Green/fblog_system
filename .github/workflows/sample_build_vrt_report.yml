@@ -6,8 +6,8 @@ on: # zizmor: ignore[dangerous-triggers] This workflow consumes artifacts from t
     types: [completed]
 
 env:
-  VRT_WRANGLER_VERSION: "4.119.0"
-  SEMDIFF_VERSION: "v0.5.0"
+  VRT_WRANGLER_VERSION: "4.131.1"
+  SEMDIFF_VERSION: "v0.5.1"
 
 jobs:
   publish_baseline:
