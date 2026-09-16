@@ -20,6 +20,8 @@ bucket_name = '${PROJECT_NAME}-blog-bucket'
 
 [vars]
 URL = "https://${HOST_NAME}"
+# Configure these Worker variables outside of this template before enabling /admin:
+# ADMIN_EMAIL, CLOUDFLARE_ACCESS_TEAM_DOMAIN, CLOUDFLARE_ACCESS_AUD
 
 [[d1_databases]]
 binding = "BLOG_DB"
