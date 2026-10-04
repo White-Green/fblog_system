@@ -32,6 +32,19 @@
       groupName: "{{{depName}}}",
       groupSlug: "binary-{{{depName}}}",
     },
+    {
+      description: "Skip Node.js changelogs in dependency update PRs.",
+      matchManagers: ["github-actions"],
+      matchDepTypes: ["uses-with"],
+      matchDepNames: ["node"],
+      fetchChangeLogs: "off",
+    },
+    {
+      description: "Skip pnpm changelogs in dependency update PRs.",
+      matchDatasources: ["npm"],
+      matchPackageNames: ["pnpm"],
+      fetchChangeLogs: "off",
+    },
   ],
 
   customManagers: [
