@@ -33,6 +33,12 @@
       groupSlug: "binary-{{{depName}}}",
     },
     {
+      description: "Update the wrangler package and VRT binary pin together.",
+      matchPackageNames: ["wrangler"],
+      groupName: "wrangler",
+      groupSlug: "wrangler",
+    },
+    {
       description: "Skip Node.js changelogs in dependency update PRs.",
       matchManagers: ["github-actions"],
       matchDepTypes: ["uses-with"],
