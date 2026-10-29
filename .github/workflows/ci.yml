@@ -5,7 +5,7 @@ on:
 
 env:
   ACTIONLINT_VERSION: v1.7.12
-  GHALINT_VERSION: v1.5.6
+  GHALINT_VERSION: v1.5.7
 
 jobs:
   github-actions-lint:
