@@ -5,7 +5,7 @@ on:
 
 env:
   ACTIONLINT_VERSION: v1.7.12
-  GHALINT_VERSION: v1.5.6
+  GHALINT_VERSION: v1.5.7
 
 jobs:
   github-actions-lint:
@@ -33,7 +33,7 @@ jobs:
 
       - name: Run zizmor
         if: ${{ !cancelled() }}
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
           advanced-security: false
           version: 1.25.2
@@ -60,7 +60,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'pnpm'
 
       - name: Install Node dependencies
@@ -166,7 +166,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'pnpm'
 
       - name: Install Node dependencies
