@@ -44,3 +44,6 @@ tracing-subscriber = { workspace = true }
 tracing-web = { workspace = true }
 wasm-bindgen = { workspace = true }
 worker = { workspace = true }
+
+[target.wasm32-unknown-unknown.dependencies]
+getrandom = { features = ["wasm_js"], workspace = true }
