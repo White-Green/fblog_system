@@ -33,6 +33,13 @@
       groupSlug: "binary-{{{depName}}}",
     },
     {
+      description: "Update the worker crate and worker-build binary together.",
+      matchDatasources: ["crate"],
+      matchPackageNames: ["worker", "worker-build"],
+      groupName: "workers-rs",
+      groupSlug: "workers-rs",
+    },
+    {
       description: "Update the wrangler package and VRT binary pin together.",
       matchPackageNames: ["wrangler"],
       groupName: "wrangler",

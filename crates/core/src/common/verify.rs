@@ -3,7 +3,7 @@ use axum::http::Request;
 use base64::Engine;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Limited};
-use rsa::RsaPublicKey;
+use rsa::PublicKey;
 use rsa::pkcs1v15::{Signature, VerifyingKey};
 use rsa::pkcs8::DecodePublicKey;
 use rsa::sha2::{Digest, Sha256};
@@ -247,7 +247,7 @@ where
         }
     };
 
-    let verifying_key = match RsaPublicKey::from_public_key_pem(&pem) {
+    let verifying_key = match PublicKey::from_public_key_pem(&pem) {
         Ok(k) => VerifyingKey::<Sha256>::new(k),
         Err(_) => {
             tracing::warn!("invalid public key");
